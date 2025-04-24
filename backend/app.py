@@ -1,131 +1,102 @@
-from flask import Flask, jsonify, send_file, request
-from flask_cors import CORS
-import numpy as np
+from flask import Flask, request, jsonify, send_from_directory
 import os
-import plyfile
-import time
+import numpy as np
+from plyfile import PlyData
+import json
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # 启用CORS以允许前端访问
 
-# 点云文件目录
-POINT_CLOUD_DIR = "../point_cloud"
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'ply'}
 
-# 获取PLY文件信息
-def get_ply_info(ply_path):
-    file_stat = os.stat(ply_path)
-    return {
-        "name": os.path.basename(ply_path),
-        "size": file_stat.st_size,
-        "modified": time.ctime(file_stat.st_mtime)
-    }
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-# 读取PLY文件
-def read_ply_file(file_path, max_points=10000000):
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 限制上传大小为500MB
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    if file and allowed_file(file.filename):
+        filename = file.filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # 解析PLY文件获取元数据
+        try:
+            plydata = PlyData.read(filepath)
+            vertex = plydata['vertex']
+            
+            # 获取点数
+            num_points = len(vertex)
+            
+            # 检查是否有颜色信息
+            has_colors = all(prop in vertex.properties for prop in ['red', 'green', 'blue'])
+            
+            return jsonify({
+                'success': True,
+                'filename': filename,
+                'total_points': num_points,
+                'has_colors': has_colors
+            })
+        except Exception as e:
+            return jsonify({'error': f'解析PLY文件时出错: {str(e)}'}), 500
+    
+    return jsonify({'error': '只允许上传PLY文件'}), 400
+
+@app.route('/api/pointcloud/<filename>', methods=['GET'])
+def get_pointcloud(filename):
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    if not os.path.exists(filepath):
+        return jsonify({'error': '文件不存在'}), 404
+    
     try:
-        ply_data = plyfile.PlyData.read(file_path)
+        plydata = PlyData.read(filepath)
+        vertex = plydata['vertex']
         
-        # 获取点云数据
-        vertex = ply_data['vertex']
-        
-        # 提取坐标
+        # 提取点坐标
         x = vertex['x']
         y = vertex['y']
         z = vertex['z']
         
-        # 如果点云太大，进行下采样
-        total_points = len(x)
-        if total_points > max_points:
-            # 计算采样间隔
-            step = total_points // max_points
-            x = x[::step]
-            y = y[::step]
-            z = z[::step]
+        points = [[float(x[i]), float(y[i]), float(z[i])] for i in range(len(vertex))]
         
-        # 创建点云数据
-        points = [[float(x[i]), float(y[i]), float(z[i])] for i in range(len(x))]
+        # 如果有颜色信息，也提取出来
+        colors = None
+        if all(prop in vertex.properties for prop in ['red', 'green', 'blue']):
+            r = vertex['red']
+            g = vertex['green']
+            b = vertex['blue']
+            colors = [[int(r[i]), int(g[i]), int(b[i])] for i in range(len(vertex))]
         
-        result = {
-            "points": points,
-            "total_points": total_points,
-            "loaded_points": len(points)
+        response = {
+            'points': points,
+            'total_points': len(points)
         }
         
-        # 检查是否有颜色数据
-        try:
-            if hasattr(vertex.dtype, 'names') and all(attr in vertex.dtype.names for attr in ['red', 'green', 'blue']):
-                # 如果点云太大且有颜色数据，也进行下采样
-                if total_points > max_points:
-                    red = vertex['red'][::step]
-                    green = vertex['green'][::step]
-                    blue = vertex['blue'][::step]
-                else:
-                    red = vertex['red']
-                    green = vertex['green']
-                    blue = vertex['blue']
-                
-                colors = [[int(red[i]), int(green[i]), int(blue[i])] for i in range(len(red))]
-                result["colors"] = colors
-        except Exception as color_error:
-            print(f"注意：无法读取颜色数据: {color_error}")
-            # 继续执行，但不包含颜色数据
+        if colors:
+            response['colors'] = colors
         
-        return result
-    
+        return jsonify(response)
     except Exception as e:
-        print(f"Error reading PLY file: {e}")
-        return None
+        return jsonify({'error': f'读取点云数据时出错: {str(e)}'}), 500
 
-# 获取所有点云文件列表
-@app.route('/api/point-clouds', methods=['GET'])
-def get_point_clouds():
-    try:
-        files = []
-        for filename in os.listdir(POINT_CLOUD_DIR):
-            if filename.endswith('.ply'):
-                file_path = os.path.join(POINT_CLOUD_DIR, filename)
-                files.append(get_ply_info(file_path))
-        return jsonify({"point_clouds": files})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# 获取指定点云文件的数据
-@app.route('/api/point-clouds/<filename>', methods=['GET'])
-def get_point_cloud(filename):
-    try:
-        # 解析参数
-        max_points = request.args.get('max_points', default=100000, type=int)
-        
-        file_path = os.path.join(POINT_CLOUD_DIR, filename)
-        if not os.path.exists(file_path):
-            return jsonify({"error": "File not found"}), 404
-        
-        result = read_ply_file(file_path, max_points)
-        if result:
-            return jsonify(result)
-        else:
-            return jsonify({"error": "Failed to read PLY file"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# 专门为加载CUHK_UPPER_ds.ply文件创建的路由
-@app.route('/api/cuhk-upper', methods=['GET'])
-def get_cuhk_upper():
-    try:
-        # 解析参数
-        max_points = request.args.get('max_points', default=50000000, type=int)
-        
-        file_path = os.path.join(POINT_CLOUD_DIR, "CUHK_UPPER_ds.ply")
-        if not os.path.exists(file_path):
-            return jsonify({"error": "CUHK_UPPER_ds.ply not found"}), 404
-        
-        result = read_ply_file(file_path, max_points)
-        if result:
-            return jsonify(result)
-        else:
-            return jsonify({"error": "Failed to read CUHK_UPPER_ds.ply file"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8085)
+    app.run(host='0.0.0.0', port=8085, debug=True) 

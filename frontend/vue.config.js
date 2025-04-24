@@ -1,16 +1,23 @@
 const { defineConfig } = require('@vue/cli-service')
+const webpack = require('webpack')
+
 module.exports = defineConfig({
   transpileDependencies: true,
-  // 开发服务器配置
-  devServer: {
-    // 配置代理
-    proxy: {
-      '/api': {
-        // 目标后端服务器地址 - 本地8085端口
-        target: 'http://localhost:8085',
-        // 允许跨域
-        changeOrigin: true
+  configureWebpack: {
+    resolve: {
+      extensions: ['.js', '.vue', '.json'],
+      fallback: {
+        path: false,
+        fs: false
       }
-    }
+    },
+    // 设置Vue的特性标志
+    plugins: [
+      new webpack.DefinePlugin({
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false)
+      })
+    ]
   }
 })

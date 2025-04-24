@@ -1,42 +1,60 @@
 <template>
   <div id="app">
-    <!-- 3D点云查看器组件 -->
-    <scene-viewer />
+    <div v-if="!uploadedFile">
+      <FileUpload @file-uploaded="onFileUploaded" />
+    </div>
+    <div v-else class="viewer-wrapper">
+      <PointCloudViewer :filename="uploadedFile.filename" />
+    </div>
   </div>
 </template>
 
 <script>
-import SceneViewer from './components/SceneViewer.vue'
+import FileUpload from './components/FileUpload.vue';
+import PointCloudViewer from './components/PointCloudViewer.vue';
 
 export default {
   name: 'App',
   components: {
-    SceneViewer
+    FileUpload,
+    PointCloudViewer
+  },
+  data() {
+    return {
+      uploadedFile: null
+    }
+  },
+  methods: {
+    onFileUploaded(fileData) {
+      this.uploadedFile = fileData;
+    }
   }
 }
 </script>
 
 <style>
-/* 重置默认样式 */
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-/* 设置根元素样式 */
 html, body {
-  width: 100%;
   height: 100%;
+  width: 100%;
   overflow: hidden;
-  background-color: #000;
-  color: #fff;
-  font-family: 'Arial', sans-serif;
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
-  width: 100vw;
   height: 100vh;
-  overflow: hidden;
+  width: 100vw;
+}
+
+.viewer-wrapper {
+  height: 100%;
+  width: 100%;
 }
 </style>
