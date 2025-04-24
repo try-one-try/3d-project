@@ -2,6 +2,18 @@
   <div class="viewer-container">
     <div ref="rendererContainer" class="renderer-container"></div>
     <div v-if="isLoading" class="loading-indicator">加载中...</div>
+    <div class="debug-panel" v-if="debugInfo">
+      <h3>调试信息</h3>
+      <p>点数量: {{ debugInfo.totalPoints }}</p>
+      <p>有颜色信息: {{ debugInfo.hasColors ? '是' : '否' }}</p>
+      <p v-if="debugInfo.colorSamples && debugInfo.colorSamples.length > 0">
+        颜色样本: 
+        <span v-for="(sample, index) in debugInfo.colorSamples" :key="index" 
+              :style="{backgroundColor: `rgb(${sample[0]}, ${sample[1]}, ${sample[2]})`, 
+                      width: '20px', height: '20px', display: 'inline-block', margin: '0 5px'}"></span>
+      </p>
+      <button @click="debugInfo = null" class="close-button">关闭</button>
+    </div>
   </div>
 </template>
 
@@ -16,7 +28,8 @@ export default {
   },
   data() {
     return {
-      isLoading: true
+      isLoading: true,
+      debugInfo: null
     }
   },
   mounted() {
@@ -91,12 +104,33 @@ export default {
     
     async loadPointCloud(THREE) {
       try {
+        console.log(`正在请求点云数据: http://localhost:8085/api/pointcloud/${this.filename}`);
         const response = await fetch(`http://localhost:8085/api/pointcloud/${this.filename}`);
         if (!response.ok) {
           throw new Error('加载点云数据失败');
         }
         
         const data = await response.json();
+        
+        // 调试信息
+        console.log('接收到的点云数据:', data);
+        
+        // 收集一些调试信息
+        const debugInfo = {
+          totalPoints: data.points.length,
+          hasColors: !!data.colors,
+          colorSamples: []
+        };
+        
+        if (data.colors && data.colors.length > 0) {
+          // 获取10个颜色样本
+          for (let i = 0; i < Math.min(10, data.colors.length); i++) {
+            debugInfo.colorSamples.push(data.colors[i]);
+          }
+          console.log('颜色样本:', debugInfo.colorSamples);
+        }
+        
+        this.debugInfo = debugInfo;
         
         // 创建点云几何体
         const geometry = new THREE.BufferGeometry();
@@ -106,14 +140,22 @@ export default {
         // 设置材质
         let material;
         
-        if (data.colors) {
+        if (data.colors && data.colors.length > 0) {
+          console.log(`点云有颜色信息，颜色数量: ${data.colors.length}`);
           // 如果有颜色信息，使用颜色
           const colors = new Float32Array(data.points.length * 3);
           
           for (let i = 0; i < data.points.length; i++) {
-            colors[i * 3] = data.colors[i][0] / 255;
-            colors[i * 3 + 1] = data.colors[i][1] / 255;
-            colors[i * 3 + 2] = data.colors[i][2] / 255;
+            if (i < data.colors.length) {
+              colors[i * 3] = data.colors[i][0] / 255;
+              colors[i * 3 + 1] = data.colors[i][1] / 255;
+              colors[i * 3 + 2] = data.colors[i][2] / 255;
+            } else {
+              // 如果颜色数据不够，使用默认颜色
+              colors[i * 3] = 1.0;     // 红色
+              colors[i * 3 + 1] = 0.0; // 绿色
+              colors[i * 3 + 2] = 0.0; // 蓝色
+            }
           }
           
           geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -121,7 +163,9 @@ export default {
             size: 0.01, 
             vertexColors: true 
           });
+          console.log('已设置颜色材质');
         } else {
+          console.log('点云没有颜色信息，使用默认颜色');
           // 没有颜色信息，使用单一颜色
           material = new THREE.PointsMaterial({ 
             size: 0.01, 
@@ -253,5 +297,28 @@ export default {
   padding: 10px 20px;
   border-radius: 4px;
   font-size: 18px;
+}
+
+.debug-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 100;
+  max-width: 300px;
+}
+
+.close-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
 }
 </style> 
