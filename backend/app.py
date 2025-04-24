@@ -1,70 +1,131 @@
-from flask import Flask, jsonify, send_file
+from flask import Flask, jsonify, send_file, request
 from flask_cors import CORS
 import numpy as np
-import json
 import os
+import plyfile
+import time
 
 app = Flask(__name__)
 CORS(app)
 
-# 数据生成函数
-def generate_cube_points(size=1.0, points_per_side=10):
-    points = []
-    # 生成立方体的点
-    for x in np.linspace(-size/2, size/2, points_per_side):
-        for y in np.linspace(-size/2, size/2, points_per_side):
-            for z in np.linspace(-size/2, size/2, points_per_side):
-                points.append([float(x), float(y), float(z)])
-    return points
+# 点云文件目录
+POINT_CLOUD_DIR = "../point_cloud"
 
-def generate_sphere_points(radius=1.0, num_points=1000):
-    # 生成球体的点
-    phi = np.random.uniform(0, 2*np.pi, num_points)
-    theta = np.random.uniform(0, np.pi, num_points)
-    
-    x = radius * np.sin(theta) * np.cos(phi)
-    y = radius * np.sin(theta) * np.sin(phi)
-    z = radius * np.cos(theta)
-    
-    return [[float(x[i]), float(y[i]), float(z[i])] for i in range(num_points)]
-
-# 初始化示例数据
-def init_sample_data():
-    sample_data = {
-        "scenes": {
-            "cube": {
-                "name": "立方体",
-                "points": generate_cube_points(size=2.0, points_per_side=10),
-                "color": "#ff0000"
-            },
-            "sphere": {
-                "name": "球体",
-                "points": generate_sphere_points(radius=1.5, num_points=1000),
-                "color": "#0000ff"
-            }
-        }
+# 获取PLY文件信息
+def get_ply_info(ply_path):
+    file_stat = os.stat(ply_path)
+    return {
+        "name": os.path.basename(ply_path),
+        "size": file_stat.st_size,
+        "modified": time.ctime(file_stat.st_mtime)
     }
-    
-    # 确保数据目录存在
-    os.makedirs('data/scenes', exist_ok=True)
-    
-    # 保存数据到文件
-    with open('data/scenes/sample_scenes.json', 'w', encoding='utf-8') as f:
-        json.dump(sample_data, f, ensure_ascii=False, indent=2)
 
-# API路由
-@app.route('/api/scenes', methods=['GET'])
-def get_scenes():
+# 读取PLY文件
+def read_ply_file(file_path, max_points=10000000):
     try:
-        with open('data/scenes/sample_scenes.json', 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    except FileNotFoundError:
-        init_sample_data()
-        with open('data/scenes/sample_scenes.json', 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
+        ply_data = plyfile.PlyData.read(file_path)
+        
+        # 获取点云数据
+        vertex = ply_data['vertex']
+        
+        # 提取坐标
+        x = vertex['x']
+        y = vertex['y']
+        z = vertex['z']
+        
+        # 如果点云太大，进行下采样
+        total_points = len(x)
+        if total_points > max_points:
+            # 计算采样间隔
+            step = total_points // max_points
+            x = x[::step]
+            y = y[::step]
+            z = z[::step]
+        
+        # 创建点云数据
+        points = [[float(x[i]), float(y[i]), float(z[i])] for i in range(len(x))]
+        
+        result = {
+            "points": points,
+            "total_points": total_points,
+            "loaded_points": len(points)
+        }
+        
+        # 检查是否有颜色数据
+        try:
+            if hasattr(vertex.dtype, 'names') and all(attr in vertex.dtype.names for attr in ['red', 'green', 'blue']):
+                # 如果点云太大且有颜色数据，也进行下采样
+                if total_points > max_points:
+                    red = vertex['red'][::step]
+                    green = vertex['green'][::step]
+                    blue = vertex['blue'][::step]
+                else:
+                    red = vertex['red']
+                    green = vertex['green']
+                    blue = vertex['blue']
+                
+                colors = [[int(red[i]), int(green[i]), int(blue[i])] for i in range(len(red))]
+                result["colors"] = colors
+        except Exception as color_error:
+            print(f"注意：无法读取颜色数据: {color_error}")
+            # 继续执行，但不包含颜色数据
+        
+        return result
+    
+    except Exception as e:
+        print(f"Error reading PLY file: {e}")
+        return None
+
+# 获取所有点云文件列表
+@app.route('/api/point-clouds', methods=['GET'])
+def get_point_clouds():
+    try:
+        files = []
+        for filename in os.listdir(POINT_CLOUD_DIR):
+            if filename.endswith('.ply'):
+                file_path = os.path.join(POINT_CLOUD_DIR, filename)
+                files.append(get_ply_info(file_path))
+        return jsonify({"point_clouds": files})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 获取指定点云文件的数据
+@app.route('/api/point-clouds/<filename>', methods=['GET'])
+def get_point_cloud(filename):
+    try:
+        # 解析参数
+        max_points = request.args.get('max_points', default=100000, type=int)
+        
+        file_path = os.path.join(POINT_CLOUD_DIR, filename)
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+        
+        result = read_ply_file(file_path, max_points)
+        if result:
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Failed to read PLY file"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 专门为加载CUHK_UPPER_ds.ply文件创建的路由
+@app.route('/api/cuhk-upper', methods=['GET'])
+def get_cuhk_upper():
+    try:
+        # 解析参数
+        max_points = request.args.get('max_points', default=50000000, type=int)
+        
+        file_path = os.path.join(POINT_CLOUD_DIR, "CUHK_UPPER_ds.ply")
+        if not os.path.exists(file_path):
+            return jsonify({"error": "CUHK_UPPER_ds.ply not found"}), 404
+        
+        result = read_ply_file(file_path, max_points)
+        if result:
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Failed to read CUHK_UPPER_ds.ply file"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # 确保示例数据存在
-    if not os.path.exists('data/scenes/sample_scenes.json'):
-        init_sample_data()
-    app.run(debug=True)
+    app.run(debug=True, port=8085)

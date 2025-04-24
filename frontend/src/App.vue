@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <!-- 这里将放置我们的3D场景查看器组件 -->
+    <!-- 3D点云查看器组件 -->
     <scene-viewer />
   </div>
 </template>
@@ -29,12 +29,12 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background-color: #000;
+  color: #fff;
+  font-family: 'Arial', sans-serif;
 }
 
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
