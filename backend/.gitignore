@@ -1,2 +1,3 @@
 # 忽略point_cloud文件夹
-/uploads/
+/uploads/*
+!/uploads/recommend.ply

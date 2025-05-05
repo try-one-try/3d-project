@@ -1,8 +1,20 @@
 <template>
   <div class="viewer-container">
+    <div class="controls">
+      <button @click="rotate('up')">Up</button>
+      <button @click="rotate('down')">Down</button>
+      <button @click="rotate('left')">Left</button>
+      <button @click="rotate('right')">Right</button>
+      <button @click="zoom('in')">Zoom In</button>
+      <button @click="zoom('out')">Zoom Out</button>
+      <input type="number" v-model.number="zoomStep" min="0.1" step="0.1" style="width:60px; margin-left:10px;" />
+      <span style="color:#fff; margin-left:4px;">Scale</span>
+      <button @click="toggleDebug" style="margin-left:16px;">{{ showDebug ? 'Hide Debug' : 'Show Debug' }}</button>
+      <button @click="backToUpload" style="margin-left:16px;background:#f44336;">Back to Upload</button>
+    </div>
     <div ref="rendererContainer" class="renderer-container"></div>
     <div v-if="isLoading" class="loading-indicator">加载中...</div>
-    <div class="debug-panel" v-if="debugInfo">
+    <div class="debug-panel" v-if="showDebug && debugInfo">
       <h3>调试信息</h3>
       <p>点数量: {{ debugInfo.totalPoints }}</p>
       <p>有颜色信息: {{ debugInfo.hasColors ? '是' : '否' }}</p>
@@ -12,7 +24,6 @@
               :style="{backgroundColor: `rgb(${sample[0]}, ${sample[1]}, ${sample[2]})`, 
                       width: '20px', height: '20px', display: 'inline-block', margin: '0 5px'}"></span>
       </p>
-      <button @click="debugInfo = null" class="close-button">关闭</button>
     </div>
   </div>
 </template>
@@ -29,7 +40,9 @@ export default {
   data() {
     return {
       isLoading: true,
-      debugInfo: null
+      debugInfo: null,
+      zoomStep: 1.2, // 默认缩放比例
+      showDebug: false
     }
   },
   mounted() {
@@ -269,6 +282,38 @@ export default {
       this.renderer = null;
       this.controls = null;
       this.pointCloud = null;
+    },
+    rotate(direction) {
+      if (!this.pointCloud) return;
+      const step = Math.PI / 6; // 每次旋转30度
+      switch (direction) {
+        case 'up':
+          this.pointCloud.rotation.x -= step;
+          break;
+        case 'down':
+          this.pointCloud.rotation.x += step;
+          break;
+        case 'left':
+          this.pointCloud.rotation.y -= step;
+          break;
+        case 'right':
+          this.pointCloud.rotation.y += step;
+          break;
+      }
+    },
+    zoom(direction) {
+      if (!this.pointCloud) return;
+      if (direction === 'in') {
+        this.pointCloud.scale.multiplyScalar(this.zoomStep);
+      } else if (direction === 'out') {
+        this.pointCloud.scale.multiplyScalar(1 / this.zoomStep);
+      }
+    },
+    toggleDebug() {
+      this.showDebug = !this.showDebug;
+    },
+    backToUpload() {
+      this.$emit('back-to-upload');
     }
   }
 }
@@ -279,6 +324,42 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+.controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 200;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.controls button {
+  padding: 6px 16px;
+  font-size: 16px;
+  background: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.controls button:hover {
+  background: #1769aa;
+}
+.controls button[style*='background:#f44336'] {
+  background: #f44336;
+}
+.controls button[style*='background:#f44336']:hover {
+  background: #b71c1c;
+}
+.controls input[type="number"] {
+  padding: 4px 8px;
+  font-size: 16px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
 }
 
 .renderer-container {

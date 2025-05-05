@@ -4,7 +4,7 @@
       <h2>上传点云文件</h2>
       <div class="file-input-container">
         <label for="file-upload" class="file-label">
-          选择 PLY 文件
+          选择 PLY 文件 (文件大小不能超过500MB)
         </label>
         <input id="file-upload" type="file" @change="onFileSelected" accept=".ply" class="file-input" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
@@ -14,6 +14,7 @@
       </button>
       <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     </div>
+
   </div>
 </template>
 
@@ -26,12 +27,20 @@ export default {
       isUploading: false,
       isUploaded: false,
       errorMessage: '',
-      uploadedFilename: ''
+      uploadedFilename: '',
+      MAX_SIZE_MB: 500
     }
   },
   methods: {
     onFileSelected(event) {
-      this.selectedFile = event.target.files[0];
+      const file = event.target.files[0];
+      if (file && file.size > this.MAX_SIZE_MB * 1024 * 1024) {
+        this.errorMessage = `文件大小不能超过${this.MAX_SIZE_MB}MB`;
+        this.selectedFile = null;
+        event.target.value = '';
+        return;
+      }
+      this.selectedFile = file;
       this.errorMessage = '';
     },
     async uploadFile() {
@@ -39,21 +48,20 @@ export default {
         this.errorMessage = '请选择文件';
         return;
       }
-
+      if (this.selectedFile.size > this.MAX_SIZE_MB * 1024 * 1024) {
+        this.errorMessage = `文件大小不能超过${this.MAX_SIZE_MB}MB`;
+        return;
+      }
       this.isUploading = true;
       this.errorMessage = '';
-
       const formData = new FormData();
       formData.append('file', this.selectedFile);
-
       try {
         const response = await fetch('http://localhost:8085/api/upload', {
           method: 'POST',
           body: formData
         });
-
         const result = await response.json();
-
         if (response.ok) {
           this.isUploaded = true;
           this.uploadedFilename = result.filename;
@@ -82,6 +90,18 @@ export default {
   margin: 0 auto;
   padding: 20px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+}
+
+.upload-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .file-input-container {
@@ -125,4 +145,6 @@ export default {
   color: red;
   margin-top: 10px;
 }
+
+
 </style> 
