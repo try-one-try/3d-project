@@ -1,16 +1,16 @@
 <template>
   <div class="upload-container">
     <div v-if="!isUploaded" class="upload-form">
-      <h2>上传点云文件</h2>
+      <h2>upload point cloud file</h2>
       <div class="file-input-container">
         <label for="file-upload" class="file-label">
-          选择 PLY 文件 (点数不能超过400万)
+          select PLY file (point number cannot exceed 400M)
         </label>
         <input id="file-upload" type="file" @change="onFileSelected" accept=".ply" class="file-input" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
       </div>
       <button @click="uploadFile" :disabled="!selectedFile || isUploading" class="upload-button">
-        {{ isUploading ? '上传中...' : '上传' }}
+        {{ isUploading ? 'uploading...' : 'upload' }}
       </button>
       <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     </div>

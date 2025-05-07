@@ -1,14 +1,14 @@
 <template>
   <div id="app">
     <div class="nav-buttons">
-      <button v-if="currentView !== 'upload'" @click="currentView = 'upload'">上传页面</button>
-      <button v-if="currentView !== 'downsample'" @click="currentView = 'downsample'">点云降采样工具</button>
+      <button v-if="currentView !== 'upload'" @click="currentView = 'upload'">upload page</button>
+      <button v-if="currentView !== 'downsample'" @click="currentView = 'downsample'">down-sampling tool</button>
     </div>
 
     <div v-if="currentView === 'upload'" class="upload-page-wrapper">
       <FileUpload @file-uploaded="onFileUploaded" />
-      <button @click="useRecommend" class="recommend-btn" :disabled="isLoadingRecommend">使用推荐点云文件</button>
-      <div v-if="isLoadingRecommend" style="margin-top:10px;color:#2196f3;font-size:16px;">上传中...</div>
+      <button @click="useRecommend" class="recommend-btn" :disabled="isLoadingRecommend"> use recommended point cloud file</button>
+      <div v-if="isLoadingRecommend" style="margin-top:10px;color:#2196f3;font-size:16px;">uploading...</div>
     </div>
 
     <div v-else-if="currentView === 'viewer'" class="viewer-wrapper">

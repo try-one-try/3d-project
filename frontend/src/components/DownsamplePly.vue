@@ -1,30 +1,30 @@
 <template>
   <div class="downsample-container">
-    <h2>PLY点云降采样工具</h2>
+    <h2>PLY point cloud down-sampling tool</h2>
     <div class="file-select-row">
       <input type="file" accept=".ply" @change="onFileSelected" id="downsample-file" style="display:none;" />
-      <button @click="triggerFileInput">选择降采样的ply文件</button>
+      <button @click="triggerFileInput">select file to down-sample</button>
       <span v-if="selectedFile" class="file-name">{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</span>
     </div>
     
     <div class="ratio-selection">
-      <p>选择降采样保留比例:</p>
+      <p>select the ratio of down-sampling:</p>
       <div class="ratio-options">
         <label>
           <input type="radio" v-model="keepRatio" value="0.1" />
-          <span>保留10%</span>
+          <span>keep 10%</span>
         </label>
         <label>
           <input type="radio" v-model="keepRatio" value="0.25" />
-          <span>保留25%</span>
+          <span>keep 25%</span>
         </label>
         <label>
           <input type="radio" v-model="keepRatio" value="0.5" />
-          <span>保留50%</span>
+          <span>keep 50%</span>
         </label>
         <label>
           <input type="radio" v-model="keepRatio" value="0.75" />
-          <span>保留75%</span>
+          <span>keep 75%</span>
         </label>
       </div>
     </div>
@@ -32,14 +32,14 @@
     <button @click="downsample" :disabled="!selectedFile || isProcessing" class="downsample-btn">降采样</button>
     
     <div v-if="isProcessing" class="processing-container">
-      <div class="processing-msg">降采样中，请稍候...</div>
+      <div class="processing-msg">down-sampling in progress, please wait...</div>
       <div v-if="uploadProgress < 100" class="progress-container">
-        <div class="progress-label">上传进度: {{ uploadProgress }}%</div>
+        <div class="progress-label">upload progress: {{ uploadProgress }}%</div>
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
         </div>
       </div>
-      <div v-else class="processing-note">文件正在处理中，大文件可能需要几分钟时间...</div>
+      <div v-else class="processing-note">file is being processed, large files may take several minutes...</div>
     </div>
     
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
@@ -48,20 +48,20 @@
     </div>
     
     <div class="quality-note">
-      <h3>降采样质量说明</h3>
+      <h3>down-sampling quality note</h3>
       <ul>
-        <li><strong>保留10%:</strong> 极大幅度减小文件大小，适合特大文件，但会显著降低细节</li>
-        <li><strong>保留25%:</strong> 大幅减小文件大小，但可能降低精细度</li>
-        <li><strong>保留50%:</strong> 平衡点云质量和文件大小，推荐选择</li>
-        <li><strong>保留75%:</strong> 保持高质量视觉效果，文件大小减少25%</li>
+        <li><strong>keep 10%:</strong> significantly reduce file size, suitable for very large files(i.e. CUHK_UPPER_ds.ply), but will significantly reduce details</li>
+        <li><strong>keep 25%:</strong> significantly reduce file size, but may reduce details</li>
+        <li><strong>keep 50%:</strong> balance point cloud quality and file size, recommended choice</li>
+        <li><strong>keep 75%:</strong> keep high quality, reduce file size by 25%</li>
       </ul>
       <div class="file-tips">
-        <h3>大文件处理说明</h3>
-        <p>对于特别大的文件 (>1GB):</p>
+        <h3>note for large point cloud</h3>
+        <p>for large point cloud (>400M points):</p>
         <ul>
-          <li>上传和处理可能需要较长时间，请耐心等待</li>
-          <li>降采样率越低，处理速度越快</li>
-          <li>推荐使用25%的保留比例处理极大文件</li>
+          <li>upload and processing may take a long time (15mins for CUHK_UPPER_ds.ply with 3700M points), please be patient</li>
+          <li>the lower the down-sampling ratio, the faster the processing speed</li>
+          <li>recommended to use 10% of the retention ratio to process very large files</li>
         </ul>
       </div>
     </div>

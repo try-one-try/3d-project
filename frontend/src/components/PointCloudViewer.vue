@@ -10,16 +10,16 @@
       <input type="number" v-model.number="zoomStep" min="0.1" step="0.1" style="width:60px; margin-left:10px;" />
       <span style="color:#fff; margin-left:4px;">Scale</span>
       <button @click="toggleDebug" style="margin-left:16px;">{{ showDebug ? 'Hide Debug' : 'Show Debug' }}</button>
-      <button @click="backToUpload" style="margin-left:16px;background:#f44336;">Back to Upload</button>
+      <button @click="backToUpload" style="margin-left:16px;background:#f44336;">Back to Upload Page</button>
     </div>
     <div ref="rendererContainer" class="renderer-container"></div>
-    <div v-if="isLoading" class="loading-indicator">加载中...</div>
+    <div v-if="isLoading" class="loading-indicator">loading...</div>
     <div class="debug-panel" v-if="showDebug && debugInfo">
-      <h3>调试信息</h3>
-      <p>点数量: {{ debugInfo.totalPoints }}</p>
-      <p>有颜色信息: {{ debugInfo.hasColors ? '是' : '否' }}</p>
+      <h3>debug information</h3>
+      <p>point number: {{ debugInfo.totalPoints }}</p>
+      <p>has color information: {{ debugInfo.hasColors ? 'yes' : 'no' }}</p>
       <p v-if="debugInfo.colorSamples && debugInfo.colorSamples.length > 0">
-        颜色样本: 
+        color samples: 
         <span v-for="(sample, index) in debugInfo.colorSamples" :key="index" 
               :style="{backgroundColor: `rgb(${sample[0]}, ${sample[1]}, ${sample[2]})`, 
                       width: '20px', height: '20px', display: 'inline-block', margin: '0 5px'}"></span>
