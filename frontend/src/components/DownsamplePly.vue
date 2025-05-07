@@ -44,7 +44,7 @@
     
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     <div v-if="downloadUrl" class="download-row">
-      <a :href="downloadUrl" :download="`downsampled_${keepRatio}_${selectedFile?.name || 'file.ply'}`" class="download-btn">下载降采样后的PLY文件</a>
+      <a :href="downloadUrl" :download="`downsampled_${keepRatio}_${selectedFile?.name || 'file.ply'}`" class="download-btn">download down-sampled PLY file</a>
     </div>
     
     <div class="quality-note">
