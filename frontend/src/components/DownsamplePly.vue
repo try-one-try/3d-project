@@ -77,7 +77,7 @@ export default {
       isProcessing: false,
       errorMessage: '',
       downloadUrl: '',
-      keepRatio: '0.5', // 默认50%
+      keepRatio: '0.1', // 默认10%
       uploadProgress: 0
     }
   },

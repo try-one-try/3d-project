@@ -9,6 +9,7 @@
       <FileUpload @file-uploaded="onFileUploaded" />
       <button @click="useRecommend" class="recommend-btn" :disabled="isLoadingRecommend"> use recommended point cloud file</button>
       <div v-if="isLoadingRecommend" style="margin-top:10px;color:#2196f3;font-size:16px;">uploading...</div>
+      <div style="margin-top:10px;color:#2196f3;font-size:16px;">My recommendation file has 200M+ points and has already existed in the server.</div>
     </div>
 
     <div v-else-if="currentView === 'viewer'" class="viewer-wrapper">
@@ -150,4 +151,5 @@ html, body {
   font-size: 16px;
   color: #555;
 }
+
 </style>

@@ -13,6 +13,17 @@
         {{ isUploading ? 'uploading...' : 'upload' }}
       </button>
       <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+      <div class="quality-note">
+        <h3>point cloud file upload note</h3>
+        <ul>
+          <li><strong>Compatible format:</strong> Only PLY file format is supported</li>
+          <li><strong>Size limitation:</strong> The point number cannot exceed 400M points, otherwise the server will crash</li>
+          <li><strong>Large files:</strong> For large point clouds, please use the down-sampling tool first</li>
+          <li><strong>Processing time:</strong> Large point cloud may take longer to upload and process</li>
+        </ul>
+      </div>
+
     </div>
 
   </div>
@@ -139,5 +150,28 @@ export default {
   margin-top: 10px;
 }
 
+.quality-note {
+  margin-top: 30px;
+  text-align: left;
+  padding: 15px;
+  background: #e8f4fd;
+  border-radius: 4px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.quality-note h3 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #1976d2;
+}
+
+.quality-note ul {
+  padding-left: 20px;
+}
+
+.quality-note li {
+  margin-bottom: 5px;
+}
 
 </style> 
