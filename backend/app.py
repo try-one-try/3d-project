@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 import os
 import numpy as np
 from plyfile import PlyData
 import json
 from flask_cors import CORS
 import logging
+from downsample import downsample_ply  # 导入降采样功能
+import uuid
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,6 +17,7 @@ CORS(app)  # 启用CORS以允许前端访问
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'ply'}
+MAX_POINTS = 4000000  # 最大点数限制为400万
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -74,6 +77,18 @@ def upload_file():
             # 获取点数
             num_points = len(vertex)
             logger.info(f"点云包含 {num_points} 个点")
+            
+            # 检查点数是否超过限制
+            if num_points > MAX_POINTS:
+                # 删除上传的文件
+                try:
+                    os.remove(filepath)
+                except:
+                    pass
+                logger.warning(f"点数超过限制 ({num_points} > {MAX_POINTS})")
+                return jsonify({
+                    'error': f'点云包含 {num_points} 个点，超过了400万点的限制。请先使用降采样工具处理后再上传。'
+                }), 400
             
             # 检查是否有颜色信息
             has_colors = check_vertex_properties(vertex)
@@ -234,6 +249,89 @@ def analyze_ply_file(filename):
     except Exception as e:
         logger.error(f"分析PLY文件时出错: {str(e)}")
         return jsonify({'error': f'分析PLY文件时出错: {str(e)}'}), 500
+
+@app.route('/api/downsample', methods=['POST'])
+def downsample_file():
+    """
+    对PLY文件进行降采样
+    可以指定保留点的百分比 (10%, 25%, 50%, 75%)
+    """
+    logger.info("接收到降采样请求")
+    if 'file' not in request.files:
+        logger.warning("没有选择文件")
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        logger.warning("没有选择文件")
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    # 获取降采样比例参数，默认为0.5 (50%)
+    keep_ratio = float(request.form.get('keep_ratio', 0.5))
+    
+    # 验证keep_ratio是否在有效范围内
+    if keep_ratio < 0.01 or keep_ratio > 1.0:
+        logger.warning(f"无效的保留率: {keep_ratio}，使用默认值0.5")
+        keep_ratio = 0.5
+    
+    logger.info(f"用户选择的降采样保留率: {keep_ratio}")
+    
+    if file and allowed_file(file.filename):
+        # 获取原始文件名并处理特殊字符
+        orig_filename = file.filename
+        # 清理文件名，移除或替换不允许的字符
+        safe_filename = "".join([c for c in orig_filename if c.isalnum() or c in "._- "]).rstrip()
+        if not safe_filename:
+            safe_filename = "file.ply"
+        
+        # 创建唯一的临时文件名
+        unique_id = str(uuid.uuid4())[:8]
+        temp_filename = f"temp_{unique_id}_{safe_filename}"
+        output_filename = f"downsampled_{unique_id}_{safe_filename}"
+        
+        # 完整路径
+        temp_upload_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        
+        logger.info(f"保存上传文件到: {temp_upload_path}")
+        
+        try:
+            # 保存上传的文件
+            file.save(temp_upload_path)
+            
+            # 获取文件大小
+            file_size_mb = os.path.getsize(temp_upload_path) / (1024 * 1024)
+            logger.info(f"接收到的文件大小: {file_size_mb:.2f} MB")
+            
+            # 降采样文件
+            logger.info(f"开始降采样过程，保留率: {keep_ratio}")
+            
+            # 调用降采样功能
+            try:
+                downsampled_path = downsample_ply(temp_upload_path, output_path, keep_ratio)
+                logger.info(f"降采样完成: {downsampled_path}")
+                
+                # 返回降采样后的文件
+                return send_file(downsampled_path, 
+                                as_attachment=True, 
+                                download_name=f"downsampled_{keep_ratio:.2f}_{safe_filename}")
+            except Exception as e:
+                logger.error(f"降采样过程中出错: {str(e)}")
+                return jsonify({'error': f'降采样过程中出错: {str(e)}'}), 500
+                
+        except Exception as e:
+            logger.error(f"处理文件时出错: {str(e)}")
+            return jsonify({'error': f'处理文件时出错: {str(e)}'}), 500
+        finally:
+            # 尝试清理临时文件
+            try:
+                if os.path.exists(temp_upload_path):
+                    os.unlink(temp_upload_path)
+            except Exception as e:
+                logger.warning(f"清理临时文件时出错: {str(e)}")
+    
+    logger.warning("只允许上传PLY文件")
+    return jsonify({'error': '只允许上传PLY文件'}), 400
 
 if __name__ == '__main__':
     logger.info("后端服务器启动在 http://0.0.0.0:8085")

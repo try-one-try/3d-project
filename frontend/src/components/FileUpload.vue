@@ -4,7 +4,7 @@
       <h2>上传点云文件</h2>
       <div class="file-input-container">
         <label for="file-upload" class="file-label">
-          选择 PLY 文件 (文件大小不能超过500MB)
+          选择 PLY 文件 (点数不能超过400万)
         </label>
         <input id="file-upload" type="file" @change="onFileSelected" accept=".ply" class="file-input" />
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
@@ -27,29 +27,18 @@ export default {
       isUploading: false,
       isUploaded: false,
       errorMessage: '',
-      uploadedFilename: '',
-      MAX_SIZE_MB: 500
+      uploadedFilename: ''
     }
   },
   methods: {
     onFileSelected(event) {
       const file = event.target.files[0];
-      if (file && file.size > this.MAX_SIZE_MB * 1024 * 1024) {
-        this.errorMessage = `文件大小不能超过${this.MAX_SIZE_MB}MB`;
-        this.selectedFile = null;
-        event.target.value = '';
-        return;
-      }
       this.selectedFile = file;
       this.errorMessage = '';
     },
     async uploadFile() {
       if (!this.selectedFile) {
         this.errorMessage = '请选择文件';
-        return;
-      }
-      if (this.selectedFile.size > this.MAX_SIZE_MB * 1024 * 1024) {
-        this.errorMessage = `文件大小不能超过${this.MAX_SIZE_MB}MB`;
         return;
       }
       this.isUploading = true;
@@ -73,6 +62,10 @@ export default {
           });
         } else {
           this.errorMessage = result.error || '上传失败';
+          // 如果是点数超限错误，添加额外提示
+          if (result.error && result.error.includes('超过了400万点的限制')) {
+            this.errorMessage += ' 请使用页面顶部的"点云降采样工具"先降低点云密度。';
+          }
         }
       } catch (error) {
         this.errorMessage = '上传过程中发生错误: ' + error.message;

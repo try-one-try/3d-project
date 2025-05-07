@@ -1,13 +1,24 @@
 <template>
   <div id="app">
-    <div v-if="!uploadedFile" class="upload-page-wrapper">
+    <div class="nav-buttons">
+      <button v-if="currentView !== 'upload'" @click="currentView = 'upload'">上传页面</button>
+      <button v-if="currentView !== 'downsample'" @click="currentView = 'downsample'">点云降采样工具</button>
+    </div>
+
+    <div v-if="currentView === 'upload'" class="upload-page-wrapper">
       <FileUpload @file-uploaded="onFileUploaded" />
       <button @click="useRecommend" class="recommend-btn" :disabled="isLoadingRecommend">使用推荐点云文件</button>
       <div v-if="isLoadingRecommend" style="margin-top:10px;color:#2196f3;font-size:16px;">上传中...</div>
     </div>
-    <div v-else class="viewer-wrapper">
+
+    <div v-else-if="currentView === 'viewer'" class="viewer-wrapper">
       <PointCloudViewer :filename="uploadedFile.filename" @back-to-upload="onBackToUpload" />
     </div>
+
+    <div v-else-if="currentView === 'downsample'">
+      <DownsamplePly />
+    </div>
+
     <div class="author-info">
       CHANG, Rui He (rchangab@connect.ust.hk)
     </div>
@@ -17,17 +28,27 @@
 <script>
 import FileUpload from './components/FileUpload.vue';
 import PointCloudViewer from './components/PointCloudViewer.vue';
+import DownsamplePly from './components/DownsamplePly.vue';
 
 export default {
   name: 'App',
   components: {
     FileUpload,
-    PointCloudViewer
+    PointCloudViewer,
+    DownsamplePly
   },
   data() {
     return {
       uploadedFile: null,
-      isLoadingRecommend: false
+      isLoadingRecommend: false,
+      currentView: 'upload' // 'upload', 'viewer', 'downsample'
+    }
+  },
+  watch: {
+    uploadedFile(newVal) {
+      if (newVal) {
+        this.currentView = 'viewer';
+      }
     }
   },
   methods: {
@@ -36,6 +57,7 @@ export default {
     },
     onBackToUpload() {
       this.uploadedFile = null;
+      this.currentView = 'upload';
     },
     async useRecommend() {
       this.isLoadingRecommend = true;
@@ -74,6 +96,24 @@ html, body {
 #app {
   height: 100vh;
   width: 100vw;
+}
+
+.nav-buttons {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+}
+
+.nav-buttons button {
+  padding: 8px 16px;
+  background: rgba(33, 150, 243, 0.8);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .upload-page-wrapper {
