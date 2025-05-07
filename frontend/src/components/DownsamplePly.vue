@@ -29,7 +29,7 @@
       </div>
     </div>
     
-    <button @click="downsample" :disabled="!selectedFile || isProcessing" class="downsample-btn">降采样</button>
+    <button @click="downsample" :disabled="!selectedFile || isProcessing" class="downsample-btn">down-sample</button>
     
     <div v-if="isProcessing" class="processing-container">
       <div class="processing-msg">down-sampling in progress, please wait...</div>
