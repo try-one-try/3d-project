@@ -87,7 +87,7 @@ def upload_file():
                     pass
                 logger.warning(f"点数超过限制 ({num_points} > {MAX_POINTS})")
                 return jsonify({
-                    'error': f'点云包含 {num_points} 个点，超过了400万点的限制。请先使用降采样工具处理后再上传。'
+                    'error': f'{num_points} points, exceeded 400M points limit. Please use the "point cloud down-sampling tool" at the top of the page to reduce the point cloud density first.'
                 }), 400
             
             # 检查是否有颜色信息

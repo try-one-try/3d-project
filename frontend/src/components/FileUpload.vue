@@ -75,7 +75,7 @@ export default {
           this.errorMessage = result.error || '上传失败';
           // 如果是点数超限错误，添加额外提示
           if (result.error && result.error.includes('超过了400万点的限制')) {
-            this.errorMessage += ' 请使用页面顶部的"点云降采样工具"先降低点云密度。';
+            this.errorMessage += ' Please use the "point cloud down-sampling tool" at the top of the page to reduce the point cloud density first.';
           }
         }
       } catch (error) {
