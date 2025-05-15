@@ -1,76 +1,93 @@
-# 3D点云查看器
+# Introduction
 
-这是一个简单的3D点云查看器，支持上传PLY格式的点云文件并在浏览器中渲染显示。
+Project name: An Efficient Web Application for 3D Point Cloud Visualization and Down-Sampling
 
-## 功能特点
+Project name: An Efficient Web Application for 3D Point Cloud Visualization and Down-Sampling
 
-- 支持拖放或选择文件上传
-- 直接在浏览器中查看点云
-- 支持鼠标交互旋转、缩放
-- 自动渲染原始颜色（如果点云有颜色信息）
+Name: CHANG, Ruihe
 
-## 项目结构
+Email: rchangab@connect.ust.hk
 
-- `frontend/`: Vue.js前端应用
-- `backend/`: Flask后端API
+This project is a 3D point cloud visualization web application. It aims to offer intuitive, efficient point cloud processing and interactive visualization. The system uses a front-end/back-end separation architecture. The front end is built with Vue.js, and the back end uses Flask. Together, they let users upload, render, interact with, and down-sample point clouds right in the browser.
 
-## 安装和运行
+## System Architecture
 
-### 后端
+The system is built with a clear front-end/back-end split:
 
-1. 进入后端目录：
-   ```bash
-   cd backend
-   ```
+- **Front End:** Uses Vue.js and Three.js for a smooth user interface and high-performance 3D rendering.
+- **Back End:** Uses Flask and Python libraries to handle point cloud data.
+- **Communication:** The two sides talk via a RESTful API, forming a complete web solution for 3D point cloud visualization.
 
-2. 创建虚拟环境（可选但推荐）：
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   venv\Scripts\activate     # Windows
-   ```
+```python
+frontend/
+    ├── public/              # Static assets
+    ├── src/                 # Source code
+    │   ├── components/      # Vue components
+    │   │   ├── DownsamplePly.vue      # Point cloud downsampling component
+    │   │   ├── FileUpload.vue         # File upload component
+    │   │   └── PointCloudViewer.vue   # 3D visualization component
+    │   ├── App.vue          # Main application component
+    │   └── main.js          # Application entry point
+    ├── package.json         # Dependencies and scripts
+    ├── vue.config.js        # Vue configuration
+    └── babel.config.js      # Babel configuration
+backend/
+    ├── app.py               # Main Flask application and API endpoints
+    ├── downsample.py        # Point cloud downsampling algorithm
+    ├── requirements.txt     # Python dependencies
+    └── uploads/             # Directory for uploaded point cloud files
+```
 
-3. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
 
-4. 运行后端服务器：
-   ```bash
-   python app.py
-   ```
-   服务器将在 http://localhost:8085 上运行
 
-### 前端
+**For more details, please see `Final Report`.**
 
-1. 进入前端目录：
-   ```bash
-   cd frontend
-   ```
 
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
 
-3. 运行开发服务器：
-   ```bash
-   npm run serve
-   ```
-   前端将在 http://localhost:8080 上运行
+# **Setup and Run**
 
-## 使用方法
+## **System Requirements**
 
-1. 打开浏览器访问 http://localhost:8080
-2. 拖放或选择一个PLY格式的点云文件
-3. 等待上传和处理完成
-4. 使用鼠标交互查看点云：
-   - 左键拖动：旋转
-   - 右键拖动：平移
-   - 滚轮：缩放
+- Python 3.6 or higher
+- Node.js 14 or higher
+- Git
 
-## 注意事项
+## **Installation and Setup**
 
-- 只支持PLY格式的点云文件
-- 对于大型点云文件（超过几百万点），加载可能需要较长时间
-- 推荐使用现代浏览器（Chrome、Firefox、Edge等）以获得最佳性能
+Install the required Python packages:
+
+```Bash
+cd backend
+pip install -r requirements.txt
+```
+
+Install the required npm packages:
+
+```Bash
+cd frontend
+npm install
+```
+
+## **Running the Application**
+
+Start the Backend Server on terminal
+
+```Bash
+cd backend
+python app.py
+```
+
+Start the Frontend Application on another terminal
+
+```Bash
+cd frontend
+npm run serve
+```
+
+By default, I set up 
+
+backend server port to 8085: `http://localhost:8085/`
+
+frontend application port to 8086: `http://localhost:8086/`
+
+Finally, Navigate to `http://localhost:8086/` on web browser.
