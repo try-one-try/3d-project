@@ -2,8 +2,6 @@
 
 Project name: An Efficient Web Application for 3D Point Cloud Visualization and Down-Sampling
 
-Project name: An Efficient Web Application for 3D Point Cloud Visualization and Down-Sampling
-
 Name: CHANG, Ruihe
 
 Email: rchangab@connect.ust.hk
