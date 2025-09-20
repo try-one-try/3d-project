@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.2",
+    "@reduxjs/toolkit": "^2.9.0",
     "antd": "^5.27.4",
+    "axios": "^1.12.2",
     "less": "^4.4.1",
     "prettier": "^3.6.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1"
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.9.1",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
