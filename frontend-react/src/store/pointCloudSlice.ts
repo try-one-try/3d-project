@@ -60,7 +60,7 @@ const pointCloudSlice = createSlice({
   reducers: {
     // 选择文件（仅前端本地状态）
     setSelectedFile(state, action: PayloadAction<File | null>) {
-      state.selectedFile = action.payload
+      state.selectedFile = action.payload // payload 是 File | null 类型
       // 选择新文件时，清空之前上传和渲染的数据
       if (action.payload) {
         state.uploaded = null
@@ -68,17 +68,22 @@ const pointCloudSlice = createSlice({
       }
     }
   },
+
+  // 每个异步 thunk（如 uploadPointCloudThunk）都有三种状态
+  // extraReducers处理异步操作的各种状态
   extraReducers: (builder) => {
-    // 上传
+    // pending：异步操作进行中
     builder.addCase(uploadPointCloudThunk.pending, (state) => {
-      state.uploading = true
+      state.uploading = true // 设置加载状态为 true
     })
+    // fulfilled：异步操作成功
     builder.addCase(uploadPointCloudThunk.fulfilled, (state, action) => {
-      state.uploading = false
-      state.uploaded = action.payload
+      state.uploading = false // 关闭加载状态
+      state.uploaded = action.payload // 设置上传成功后的数据
     })
+    // rejected：异步操作失败
     builder.addCase(uploadPointCloudThunk.rejected, (state) => {
-      state.uploading = false
+      state.uploading = false // 关闭加载状态
     })
 
     // 获取点云数据
