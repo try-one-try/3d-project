@@ -12,8 +12,9 @@
 // - Geometry + Material -> Mesh/Points：数据(几何) + 外观(材质) = 可渲染物体。
 // 在本组件中：我们把点云数据变成 BufferGeometry，再用 PointsMaterial 画成“很多小点”。
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 export interface PointCloudData {
   points: number[][]
@@ -43,11 +44,9 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
   const sceneRef = useRef<any>(null)
   const cameraRef = useRef<any>(null)
   const pointsRef = useRef<any>(null)
+  const controlsRef = useRef<OrbitControls | null>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const animationRef = useRef<number | null>(null)
-  // 将相机“围绕目标”的旋转与距离放入 ref，便于在外部按钮中控制
-  const rotationRef = useRef(new THREE.Euler(0, 0, 0, 'XYZ'))
-  const distanceRef = useRef({ value: 2 })
 
   // 初始化三要素与交互、循环渲染：
   // 思路：组件挂载时创建 scene/camera/renderer，并注册鼠标事件与 resize 监听；
@@ -74,41 +73,13 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
     }
     mountRef.current.appendChild(renderer.domElement)
 
-    // 基本交互控制（无需引入 OrbitControls）：
-    // - 按下并拖拽：改变欧拉角 rotationRef（理解成“从目标出发的朝向”）
-    // - 滚轮：改变距离 distanceRef（理解成“离目标多远”）
-    //   我们并不直接旋转物体，而是围绕目标点(0,0,0)移动“相机”的位置与朝向。
-    let isDragging = false
-    let prevX = 0
-    let prevY = 0
-
-    const onPointerDown = (e: PointerEvent) => {
-      isDragging = true
-      prevX = e.clientX
-      prevY = e.clientY
-    }
-    const onPointerUp = () => {
-      isDragging = false
-    }
-    const onPointerMove = (e: PointerEvent) => {
-      if (!isDragging) return
-      const dx = e.clientX - prevX
-      const dy = e.clientY - prevY
-      prevX = e.clientX
-      prevY = e.clientY
-      rotationRef.current.y += dx * 0.005
-      rotationRef.current.x += dy * 0.005
-    }
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const delta = Math.sign(e.deltaY)
-      distanceRef.current.value = Math.min(1000, Math.max(0.1, distanceRef.current.value * (1 + delta * 0.1)))
-    }
-
-    renderer.domElement.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointermove', onPointerMove)
-    renderer.domElement.addEventListener('wheel', onWheel, { passive: false })
+    // 使用 OrbitControls 替代手写交互：支持旋转/缩放/平移，带阻尼更自然
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.08
+    controls.target.set(0, 0, 0)
+    controls.update()
+    controlsRef.current = controls
 
     // resize：容器大小变化时，更新渲染尺寸与相机纵横比
     const ro = new ResizeObserver(() => {
@@ -126,15 +97,9 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
     cameraRef.current = camera
     rendererRef.current = renderer
 
-    // 渲染循环：根据当前 rotationRef 与 distanceRef 计算相机位置与朝向
-    // 直觉类比：拿着相机绕着目标做“公转”，并始终看向目标。
+    // 渲染循环：OrbitControls 需要每帧 update() 来应用阻尼等效果
     const animate = () => {
-      const target = new THREE.Vector3(0, 0, 0)
-      const rotationMatrix = new THREE.Matrix4().makeRotationFromEuler(rotationRef.current)
-      const base = new THREE.Vector3(0, 0, distanceRef.current.value)
-      const pos = base.applyMatrix4(rotationMatrix)
-      camera.position.copy(pos)
-      camera.lookAt(target)
+      controls.update()
       renderer.render(scene, camera)
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -146,10 +111,10 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
         animationRef.current = null
       }
       ro.disconnect()
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointermove', onPointerMove)
-      renderer.domElement.removeEventListener('wheel', onWheel)
+      if (controlsRef.current) {
+        controlsRef.current.dispose()
+        controlsRef.current = null
+      }
       if (pointsRef.current) {
         scene.remove(pointsRef.current)
         pointsRef.current.geometry.dispose()
@@ -247,20 +212,40 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
     scene.add(cloud)
   }, [data])
 
+  // 程序化旋转（当 OrbitControls 类型不暴露 rotateLeft/rotateUp 时的兜底实现）
+  const rotateBy = (deltaTheta: number, deltaPhi: number) => {
+    const c = controlsRef.current
+    const cam = cameraRef.current as any
+    if (!c || !cam) return
+    const offset = new THREE.Vector3().copy(cam.position).sub(c.target)
+    const spherical = new THREE.Spherical().setFromVector3(offset)
+    spherical.theta += deltaTheta
+    spherical.phi += deltaPhi
+    const EPS = 1e-6
+    const minPhi = (c as any).minPolarAngle ?? 0
+    const maxPhi = (c as any).maxPolarAngle ?? Math.PI
+    spherical.phi = Math.max(minPhi + EPS, Math.min(maxPhi - EPS, spherical.phi))
+    spherical.makeSafe()
+    offset.setFromSpherical(spherical)
+    cam.position.copy(c.target).add(offset)
+    cam.lookAt(c.target)
+    c.update()
+  }
+
   // 将四向旋转方法暴露给父组件调用
   // 注意：这里使用“弧度”作为角度单位（rad）。默认每次调用旋转约 0.3rad ≈ 17.2°。
   useImperativeHandle(ref, () => ({
     rotateLeft: (stepRad = 0.3) => {
-      rotationRef.current.y -= stepRad
+      rotateBy(stepRad, 0)
     },
     rotateRight: (stepRad = 0.3) => {
-      rotationRef.current.y += stepRad
+      rotateBy(-stepRad, 0)
     },
     rotateUp: (stepRad = 0.3) => {
-      rotationRef.current.x -= stepRad
+      rotateBy(0, stepRad)
     },
     rotateDown: (stepRad = 0.3) => {
-      rotationRef.current.x += stepRad
+      rotateBy(0, -stepRad)
     }
   }), [])
 

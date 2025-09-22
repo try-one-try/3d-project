@@ -16,11 +16,6 @@ const items = [
     key: '/down-sampling',
     icon: <UserOutlined />,
     label: 'Down-Sampling'
-  },
-  {
-    key: '/ai-chatting',
-    icon: <UserOutlined />,
-    label: 'AI-Chatting'
   }
 ]
 
