@@ -45,6 +45,7 @@ const Home: React.FC = () => {
     }
   }, [dispatch, selectedFile])
 
+  // 用 useMemo 计算一个布尔值 canRender，当且仅当 uploaded?.filename 有值时为 true，否则为 false
   const canRender = useMemo(() => !!uploaded?.filename, [uploaded])
 
   const onRender = useCallback(async () => {

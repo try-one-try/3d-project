@@ -42,7 +42,7 @@ const DownSampling: React.FC = () => {
       message.warning('保留比例需在 0.01 ~ 1.0 之间')
       return
     }
-    setLoading(true)
+    setLoading(true) // 按钮禁用 + 旋转态，防止重复点击并给用户反馈
     try {
       const blob = await downsamplePointCloud(file, keepRatio)
       // 创建临时链接并触发下载
@@ -70,7 +70,7 @@ const DownSampling: React.FC = () => {
           <Upload
             beforeUpload={beforeUpload}
             maxCount={1}
-            fileList={file ? [file as any] : []}
+            fileList={file ? [file as any] : []} // fileList是antd的Upload组件的属性，用于显示已上传的文件
             onRemove={() => {
               setFile(null)
               return true
@@ -79,7 +79,7 @@ const DownSampling: React.FC = () => {
           >
             <Button size="small" icon={<CloudUploadOutlined />}>选择 .ply 文件 (≤400MB)</Button>
           </Upload>
-
+          {/* antd的Flex组件等价于一个带 display:flex 的 div*/}
           <Flex align="center" gap={6}>
             <Typography.Text>保留比例:</Typography.Text>
             <InputNumber

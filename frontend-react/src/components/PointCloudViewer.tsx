@@ -101,10 +101,12 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
     const animate = () => {
       controls.update()
       renderer.render(scene, camera)
+      // animationRef 不是“动画对象”，它只是用来存放 requestAnimationFrame 的返回值（一个数字 ID）的 ref，方便后续取消动画循环和避免重复启动
       animationRef.current = requestAnimationFrame(animate)
     }
     animate()
 
+    // 清理函数，组件卸载时清理资源
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
