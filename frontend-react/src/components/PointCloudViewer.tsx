@@ -100,7 +100,7 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
     // 渲染循环：OrbitControls 需要每帧 update() 来应用阻尼等效果
     const animate = () => {
       controls.update()
-      renderer.render(scene, camera)
+      renderer.render(scene, camera) // 每帧都重新渲染场景和相机
       // animationRef 不是“动画对象”，它只是用来存放 requestAnimationFrame 的返回值（一个数字 ID）的 ref，方便后续取消动画循环和避免重复启动
       animationRef.current = requestAnimationFrame(animate)
     }

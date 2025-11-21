@@ -10,7 +10,20 @@ export const store = configureStore({
   reducer: {
     // 点云相关的状态管理切片
     pointCloud: pointCloudReducer
-  }
+  },
+  // 说明：
+  // - Home 与 File-Analyzing 页面都会把浏览器的 File 对象放入 Redux（selectedFile），
+  //   这是非序列化数据，默认的 serializableCheck 会报警告。
+  // - 这里显式忽略该 action 与该路径，避免控制台噪声；此做法安全可控。
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // 忽略把 File 放入 action 的类型
+        ignoredActions: ['pointCloud/setSelectedFile'],
+        // 忽略 state 中保存 File 的路径
+        ignoredPaths: ['pointCloud.selectedFile']
+      }
+    })
 })
 
 // 推导出全局 RootState 类型（用于 useSelector）

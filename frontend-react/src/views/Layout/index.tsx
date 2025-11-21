@@ -16,6 +16,11 @@ const items = [
     key: '/down-sampling',
     icon: <UserOutlined />,
     label: 'Down-Sampling'
+  },
+  {
+    key: '/file-analyzing',
+    icon: <UserOutlined />,
+    label: 'File Analyzing'
   }
 ]
 
@@ -61,7 +66,7 @@ const App: React.FC = () => {
             <Outlet />
           </div>
         </Content>
-        <Footer style={{ textAlign: 'center' }}>Ant Design ©{new Date().getFullYear()} Created by Ant UED</Footer>
+        <Footer style={{ textAlign: 'center' }}>CHANG, Ruihe 21109304</Footer>
       </Layout>
     </Layout >
   )
