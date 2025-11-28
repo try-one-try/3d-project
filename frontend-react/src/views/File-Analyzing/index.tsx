@@ -2,64 +2,89 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Card, Flex, Input, Radio, Space, Typography, Upload, message } from 'antd'
 import type { UploadProps } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
+// ReactMarkdown 用于将 Markdown 格式的文本渲染成漂亮的 HTML
 import ReactMarkdown from 'react-markdown'
+// remarkGfm 支持 GitHub 风格的 Markdown (表格、删除线等)
 import remarkGfm from 'remark-gfm'
-// 对齐 Home 页的“上传写法”：使用 Redux 管控文件选择与上传
+
+// 引入 Redux 相关的钩子，用于在全局状态中存取数据
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { setSelectedFile, uploadPointCloudThunk } from '@/store/pointCloudSlice'
 
 const { Title, Text } = Typography
 
-// 说明：
-// - 本组件用于“文件语义分析（SSE 实时吐字）”功能，尽量不修改旧文件，集中在该视图中实现。
-// - 约束：仅允许 .ply 文件，且前端限制大小不超过 5MB。
-// - 流程：前端选择文件 -> 上传到后端 /api/upload -> 拿到 filename -> 建立 SSE 到 /api/llm/stream_file?filename=...&lang=...
-// - 语言：用户选择中文(zh)或英文(en)输出，作为查询参数传给后端。
-// - 下载：分析完成后，支持导出为 .txt 或 .json（本地生成，不额外请求后端）。
+// --- 功能说明 ---
+// 本组件用于“文件语义分析（SSE 实时吐字）”功能。
+// 流程：
+// 1. 用户选择 .ply 点云文件。
+// 2. 上传到后端 /api/upload，后端保存并返回 filename。
+// 3. 前端拿到 filename 后，建立 SSE 连接 (/api/llm/stream_file) 请求大模型分析。
+// 4. 分析结果流式显示，并支持下载。
 
-type Lang = 'zh' | 'en'
+type Lang = 'zh' | 'en' // 定义语言类型：中文或英文
 
-const MAX_SIZE_BYTES = 100 * 1024 * 1024 // 10MB
+const MAX_SIZE_BYTES = 100 * 1024 * 1024 // 100MB
 
+// 获取后端 API 地址，优先使用环境变量，否则默认为 localhost:8085
 const baseURL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8085'
 
 const FileAnalyzing: React.FC = () => {
+  // dispatch 用于触发 Redux 的动作（如上传文件）
   const dispatch = useAppDispatch()
+  // 从 Redux 全局状态中获取当前选中的文件、上传状态等信息
   const { selectedFile, uploaded, uploading } = useAppSelector(s => s.pointCloud)
 
-  // 已上传后的后端文件名（后端保存到 uploads/ 后返回的 filename）
+  // --- 本地状态管理 (State) ---
+
+  // serverFilename: 记录文件上传到服务器后，服务器返回的文件名（用于后续请求分析）
   const [serverFilename, setServerFilename] = useState<string>('')
-  // 当前选择的原始文件（用于 JSON 导出中记录原始名和大小等）
+
+  // localFile: 记录用户最初在电脑上选中的那个文件对象（主要用于导出时保留原始文件名）
   const [localFile, setLocalFile] = useState<File | null>(null)
-  // OpenAI API Key（只保存在本地浏览器，避免后端暴露）
+
+  // apiKey: 用户的 OpenAI API Key。
+  // 为了安全，使用 lazy initialization (() => ...) 从 localStorage 读取，刷新页面后还在。
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('fileAnalyzingApiKey') || '')
-  // 语言选择：中文 zh / 英文 en
+
+  // lang: 用户选择的分析语言，默认中文 'zh'
   const [lang, setLang] = useState<Lang>('zh')
-  // SSE 实时累积的分析文本
+
+  // analysisText: 存储大模型实时返回的分析文本。随着流式数据的到来，这个字符串会越来越长。
   const [analysisText, setAnalysisText] = useState<string>('')
-  // 是否处于分析中（SSE 连接存活）
+
+  // analyzing: 标记当前是否正在分析中。如果是，会禁用一些按钮，防止重复操作。
   const [analyzing, setAnalyzing] = useState<boolean>(false)
-  // SSE 连接引用，以便停止
+
+  // eventSourceRef: 使用 useRef 保存 SSE 连接对象的引用。
+  // useRef 的特点是：值改变不会触发组件重新渲染，且值在组件生命周期内保持不变，适合存定时器ID、连接对象等。
   const eventSourceRef = useRef<EventSource | null>(null)
 
-  // 与 Home 一致：使用受控 Upload + 手动“上传”按钮
+  // --- 第一步 上传逻辑 ---
+
+  // beforeUpload: Ant Design Upload 组件的回调。
+  // 在文件真正上传前执行，用于校验文件格式和大小。
+  // 返回 false 表示“不要自动上传”，因为我们要手动控制上传时机。
   const beforeUpload: UploadProps['beforeUpload'] = useCallback((file: File) => {
+    // 1. 检查文件后缀是否为 .ply
     const isPly = file.name.toLowerCase().endsWith('.ply')
     if (!isPly) {
       message.warning('仅支持 .ply 文件')
-      return Upload.LIST_IGNORE
+      return Upload.LIST_IGNORE // 不将非法文件加入列表
     }
+    // 2. 检查文件大小
     if (file.size > MAX_SIZE_BYTES) {
-      message.warning('文件大小不能超过 10MB')
+      message.warning('文件大小不能超过 100MB')
       return Upload.LIST_IGNORE
     }
+    // 3. 校验通过，保存到 Redux 和本地状态
     // 受控：只记录所选文件，不自动上传
     dispatch(setSelectedFile(file))
     // 供 JSON 导出记录原始名
     setLocalFile(file)
-    return false
+    return false // 阻止 Antd 自动上传
   }, [dispatch])
 
+  // onUpload: 点击“上传”按钮时触发
   const onUpload = useCallback(async () => {
     if (!selectedFile) {
       message.info('请先选择 .ply 文件')
@@ -67,52 +92,60 @@ const FileAnalyzing: React.FC = () => {
     }
     try {
       // 走与 Home 相同的 thunk 上传流程
+      // unwrap() 用于直接获取 Promise 成功的结果或抛出错误
       const res = await dispatch(uploadPointCloudThunk(selectedFile)).unwrap()
+      // 如果上传成功，后端会返回一个 filename，记下来用于后续分析
       if (res?.filename) {
         setServerFilename(res.filename)
         message.success(`上传成功：${res.filename}`)
       }
     } catch (e) {
-      // 失败提示由拦截器统一处理
+      // 失败提示由拦截器或 thunk 内部统一处理
     }
   }, [dispatch, selectedFile])
 
+  // --- 第二步 分析逻辑 (核心) ---
+
   // 开始分析（建立 SSE 连接）
   const handleStart = useCallback(() => {
+    // 1. 确定要分析哪个文件（优先用刚上传的 serverFilename）
     const filename = serverFilename || uploaded?.filename || ''
     if (!filename) {
       message.warning('请先上传 .ply 文件')
       return
     }
+    // 2. 校验 API Key
     const trimmedKey = apiKey.trim()
     if (!trimmedKey) {
       message.warning('请先输入 OpenAI API Key')
       return
     }
-    // 每次分析前清空上一次的文本
+    // 3. 准备工作：清空上一次的文本
     setAnalysisText('')
 
-    // 组装 SSE URL（GET）：/api/llm/stream_file?filename=...&lang=zh|en&api_key=...
+    // 4. 组装 SSE URL（GET）：/api/llm/stream_file?filename=...&lang=zh|en&api_key=...
     const url = `${baseURL}/api/llm/stream_file?filename=${encodeURIComponent(filename)}&lang=${encodeURIComponent(lang)}&api_key=${encodeURIComponent(trimmedKey)}`
 
-    // 创建 EventSource 连接（服务端需返回 text/event-stream）
+    // 5. 创建 EventSource 连接（服务端需返回 text/event-stream）
     const es = new EventSource(url)
     eventSourceRef.current = es
     setAnalyzing(true)
 
-    // 监听自定义事件名 delta（后端会使用 event: delta 推送片段）
+    // 6. 监听自定义事件名 delta（后端会使用 event: delta 推送片段）
     es.addEventListener('delta', (e: MessageEvent) => {
       const data = (e as MessageEvent).data || ''
+      // 触发react重新渲染。prev + char 表示：保留之前的文字，在后面追加新字
       setAnalysisText(prev => prev + data)
     })
 
-    // 自定义完成事件
+    // 7. 自定义完成事件
     es.addEventListener('done', () => {
       setAnalyzing(false)
       es.close()
       eventSourceRef.current = null
     })
 
+    // 8. 错误处理
     es.onerror = () => {
       setAnalyzing(false)
       es.close()
@@ -130,6 +163,8 @@ const FileAnalyzing: React.FC = () => {
     setAnalyzing(false)
   }, [])
 
+  // --- 导出/下载逻辑 ---
+
   // 导出为 TXT（将已累积的 analysisText 作为纯文本下载）
   const handleDownloadTxt = useCallback(() => {
     if (!analysisText) {
@@ -138,6 +173,7 @@ const FileAnalyzing: React.FC = () => {
     }
     const blob = new Blob([analysisText], { type: 'text/plain;charset=utf-8' })
     const a = document.createElement('a')
+    // 文件名处理：去掉后缀，加上 .analysis.txt
     const base = (localFile?.name || serverFilename || 'analysis').replace(/\.[^/.]+$/, '')
     a.download = `${base}.analysis.txt`
     a.href = URL.createObjectURL(blob)
@@ -166,6 +202,8 @@ const FileAnalyzing: React.FC = () => {
     a.click()
     URL.revokeObjectURL(a.href)
   }, [analysisText, lang, localFile, serverFilename])
+
+  // --- 副作用与工具函数 ---
 
   // 组件卸载时，确保关闭 SSE
   useEffect(() => {
@@ -221,6 +259,7 @@ const FileAnalyzing: React.FC = () => {
       .replace(/：\s+/g, '： ')
   }, [analysisText])
 
+  // --- 界面渲染 ---
   return (
     <Space direction='vertical' size='large' style={{ display: 'flex' }}>
       <Title level={3}>File Analyzing（点云文件分析）</Title>
@@ -292,9 +331,15 @@ const FileAnalyzing: React.FC = () => {
               background: '#fafafa'
             }}
           >
+            {/* --- 实时分析输出渲染逻辑 --- */}
             {analysisText ? (
+              // 如果 analysisText 不为空（说明 SSE 已经返回了内容），则使用 ReactMarkdown 组件渲染
+              // ReactMarkdown 将 Markdown 语法（如 ### 标题、- 列表）转换成 HTML
+              // remarkPlugins={[remarkGfm]} 支持 GitHub 风格的 Markdown（如表格）
+              // normalizedMarkdown 是经过格式修正的文本，避免渲染格式错乱
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizedMarkdown}</ReactMarkdown>
             ) : (
+              // 如果 analysisText 为空（还没开始或者刚开始还没收到字），显示占位提示文本
               <Text type='secondary'>等待分析结果流式输出……</Text>
             )}
           </div>

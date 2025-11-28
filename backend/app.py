@@ -477,6 +477,15 @@ def stream_file_analysis():
       2) 再在可引用文件的端点里创建流式响应；此处保留结构，便于替换实现。
     """
     # 优先使用前端传来的 api_key（允许用户在前端自行输入），否则 fallback 到环境变量
+
+    # request 对象：这是 Flask 框架提供的一个全局对象，用于接收和处理 HTTP 请求
+    # request.args：这是一个字典，专门存放 URL 查询参数 (Query Parameters)。
+    # 例如，前端访问的 URL 是：http://localhost:8085/api/llm/stream_file?filename=abc.ply&lang=zh&api_key=sk-123456
+    # 那么 request.args 里就有：
+    #   filename: "abc.ply"
+    #   lang: "zh"
+    #   api_key: "sk-123456"
+    # .get('api_key', '')：从字典里取 api_key 的值。如果 URL 里没带这个参数，就返回空字符串 ''（防止程序报错）。
     api_key = request.args.get('api_key', '', type=str).strip()
     if not api_key:
         api_key = os.environ.get('OPENAI_API_KEY', '').strip()
@@ -554,10 +563,11 @@ def stream_file_analysis():
                 'temperature': 0.3,
                 'stream': True
             }
-
+            # requests是一个库，用于发送HTTP请求。
+            # 这里向 OpenAI 发起流式请求 (stream=True)，OpenAI 给一点数据，r 就收到一点
             with requests.post(url, headers=headers, data=json.dumps(payload), stream=True, timeout=(10, 600)) as r:
                 r.raise_for_status()
-                # 逐行读取 SSE 风格的数据：形如 "data: {...}" 直到 "data: [DONE]"
+                # 逐行解析出token（openai的流式api每行返回一个token），直到 "data: [DONE]"
                 for raw_line in r.iter_lines(decode_unicode=True):
                     if not raw_line:
                         continue
@@ -576,9 +586,10 @@ def stream_file_analysis():
                                 delta = choices[0].get('delta') or {}
                                 content = delta.get('content')
                                 if content:
-                                    # 发送一段文本增量（既发送默认 message 也发送自定义 delta 事件，前端任一监听均可）
-                                    yield f'data: {content}\n\n'
-                                    yield f'event: delta\ndata: {content}\n\n'
+                                    # 关键：使用 yield 逐步产出数据，每次 yield，Flask 就会把这部分数据通过网络发给前端
+                                    # yield两次是为了兼容不同前端监听方式的保险写法
+                                    yield f'data: {content}\n\n' # eventSource 默认监听 data 事件
+                                    yield f'event: delta\ndata: {content}\n\n' # 自定义监听 delta 事件
                         except Exception as parse_err:
                             logger.warning(f"SSE 解析错误: {parse_err}")
                             # 不中断，尝试继续后续数据
