@@ -6,6 +6,8 @@ import { InboxOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 // remarkGfm 支持 GitHub 风格的 Markdown (表格、删除线等)
 import remarkGfm from 'remark-gfm'
+// 引入 lodash 的 debounce，用于防抖处理
+import debounce from 'lodash/debounce'
 
 // 引入 Redux 相关的钩子，用于在全局状态中存取数据
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -50,7 +52,12 @@ const FileAnalyzing: React.FC = () => {
   const [lang, setLang] = useState<Lang>('zh')
 
   // analysisText: 存储大模型实时返回的分析文本。随着流式数据的到来，这个字符串会越来越长。
+  // 这里的 analysisText 是“事实源头”，即累积的全量文本。
   const [analysisText, setAnalysisText] = useState<string>('')
+
+  // displayAnalysisText: 用于 UI 渲染的文本状态。它是 analysisText 的“防抖副本”。
+  // 通过防抖更新这个状态，可以减少 ReactMarkdown 的重绘频率，从而避免高频更新导致的 UI 闪烁。
+  const [displayAnalysisText, setDisplayAnalysisText] = useState<string>('')
 
   // analyzing: 标记当前是否正在分析中。如果是，会禁用一些按钮，防止重复操作。
   const [analyzing, setAnalyzing] = useState<boolean>(false)
@@ -58,6 +65,28 @@ const FileAnalyzing: React.FC = () => {
   // eventSourceRef: 使用 useRef 保存 SSE 连接对象的引用。
   // useRef 的特点是：值改变不会触发组件重新渲染，且值在组件生命周期内保持不变，适合存定时器ID、连接对象等。
   const eventSourceRef = useRef<EventSource | null>(null)
+
+  // --- 防抖更新逻辑 ---
+
+  // 创建一个防抖函数，用于延迟更新 UI 上的文本
+  // 这里设置为 50ms，即每 50ms 最多更新一次 UI，这样人眼感觉不到卡顿，但能极大减轻渲染压力和闪烁
+  // 使用 useCallback 和 useRef 结合确保 debounce 函数在组件生命周期内稳定
+  const debouncedUpdateUI = useMemo(
+    () =>
+      debounce((text: string) => {
+        setDisplayAnalysisText(text)
+      }, 50),
+    []
+  )
+
+  // 当 analysisText (数据源) 变化时，触发防抖更新 UI
+  useEffect(() => {
+    debouncedUpdateUI(analysisText)
+    // 清理函数：组件卸载或 analysisText 变化前取消未执行的 debounce
+    return () => {
+      debouncedUpdateUI.cancel()
+    }
+  }, [analysisText, debouncedUpdateUI])
 
   // --- 第一步 上传逻辑 ---
 
@@ -122,6 +151,7 @@ const FileAnalyzing: React.FC = () => {
     }
     // 3. 准备工作：清空上一次的文本
     setAnalysisText('')
+    setDisplayAnalysisText('') // 同时清空 UI 显示
 
     // 4. 组装 SSE URL（GET）：/api/llm/stream_file?filename=...&lang=zh|en&api_key=...
     const url = `${baseURL}/api/llm/stream_file?filename=${encodeURIComponent(filename)}&lang=${encodeURIComponent(lang)}&api_key=${encodeURIComponent(trimmedKey)}`
@@ -134,7 +164,8 @@ const FileAnalyzing: React.FC = () => {
     // 6. 监听自定义事件名 delta（后端会使用 event: delta 推送片段）
     es.addEventListener('delta', (e: MessageEvent) => {
       const data = (e as MessageEvent).data || ''
-      // 触发react重新渲染。prev + char 表示：保留之前的文字，在后面追加新字
+      // 累积文本到数据源 analysisText
+      // 注意：这里只更新数据源，不直接触发重绘，重绘交给上面的 useEffect + debounce 托管
       setAnalysisText(prev => prev + data)
     })
 
@@ -143,6 +174,8 @@ const FileAnalyzing: React.FC = () => {
       setAnalyzing(false)
       es.close()
       eventSourceRef.current = null
+      // 确保最后一点内容能显示出来（立即执行一次 debounce）
+      debouncedUpdateUI.flush()
     })
 
     // 8. 错误处理
@@ -152,7 +185,7 @@ const FileAnalyzing: React.FC = () => {
       eventSourceRef.current = null
       message.error('分析过程中发生错误或连接断开')
     }
-  }, [serverFilename, uploaded?.filename, lang, apiKey])
+  }, [serverFilename, uploaded?.filename, lang, apiKey, debouncedUpdateUI])
 
   // 停止分析（主动断开 SSE）
   const handleStop = useCallback(() => {
@@ -161,7 +194,8 @@ const FileAnalyzing: React.FC = () => {
       eventSourceRef.current = null
     }
     setAnalyzing(false)
-  }, [])
+    debouncedUpdateUI.flush() // 停止时立即刷新显示
+  }, [debouncedUpdateUI])
 
   // --- 导出/下载逻辑 ---
 
@@ -205,15 +239,16 @@ const FileAnalyzing: React.FC = () => {
 
   // --- 副作用与工具函数 ---
 
-  // 组件卸载时，确保关闭 SSE
+  // 组件卸载时，确保关闭 SSE 并清理 debounce
   useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
         eventSourceRef.current = null
       }
+      debouncedUpdateUI.cancel()
     }
-  }, [])
+  }, [debouncedUpdateUI])
 
   // 同步 API Key 到 localStorage
   useEffect(() => {
@@ -248,16 +283,17 @@ const FileAnalyzing: React.FC = () => {
   }, [serverFilename, uploaded?.filename])
 
   // 将 LLM 返回的原始文本做轻量格式修正，方便 Markdown 渲染
+  // 注意：这里依赖的是 displayAnalysisText (防抖后的文本)，而不是 analysisText
   const normalizedMarkdown = useMemo(() => {
-    if (!analysisText) return ''
-    return analysisText
+    if (!displayAnalysisText) return ''
+    return displayAnalysisText
       // 确保标题前有空行
       .replace(/(\S)(###\s?)/g, '$1\n\n$2')
       // 确保列表项前有换行
       .replace(/([^\n])(-\s)/g, '$1\n$2')
       // 去除多余空格导致的高亮
       .replace(/：\s+/g, '： ')
-  }, [analysisText])
+  }, [displayAnalysisText])
 
   // --- 界面渲染 ---
   return (
@@ -332,14 +368,14 @@ const FileAnalyzing: React.FC = () => {
             }}
           >
             {/* --- 实时分析输出渲染逻辑 --- */}
-            {analysisText ? (
-              // 如果 analysisText 不为空（说明 SSE 已经返回了内容），则使用 ReactMarkdown 组件渲染
+            {displayAnalysisText ? (
+              // 如果 displayAnalysisText 不为空（说明 SSE 已经返回了内容），则使用 ReactMarkdown 组件渲染
               // ReactMarkdown 将 Markdown 语法（如 ### 标题、- 列表）转换成 HTML
               // remarkPlugins={[remarkGfm]} 支持 GitHub 风格的 Markdown（如表格）
               // normalizedMarkdown 是经过格式修正的文本，避免渲染格式错乱
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizedMarkdown}</ReactMarkdown>
             ) : (
-              // 如果 analysisText 为空（还没开始或者刚开始还没收到字），显示占位提示文本
+              // 如果 displayAnalysisText 为空（还没开始或者刚开始还没收到字），显示占位提示文本
               <Text type='secondary'>等待分析结果流式输出……</Text>
             )}
           </div>
