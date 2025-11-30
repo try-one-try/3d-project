@@ -65,7 +65,7 @@ const DownSampling: React.FC = () => {
 
   return (
     <Space direction="vertical" size="small" style={{ width: '100%' }}>
-      <Card size="small" bodyStyle={{ padding: 12 }} title={<Typography.Text strong>点云降采样下载</Typography.Text>}>
+      <Card size="small" bodyStyle={{ padding: 12 }} title={<Typography.Text strong>Point Cloud Down-Sampling and Download</Typography.Text>}>
         <Flex gap={8} align="center" wrap>
           <Upload
             beforeUpload={beforeUpload}
@@ -77,11 +77,11 @@ const DownSampling: React.FC = () => {
             }}
             showUploadList={{ showRemoveIcon: true }}
           >
-            <Button size="small" icon={<CloudUploadOutlined />}>选择 .ply 文件 (≤400MB)</Button>
+            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤400MB)</Button>
           </Upload>
           {/* antd的Flex组件等价于一个带 display:flex 的 div*/}
           <Flex align="center" gap={6}>
-            <Typography.Text>保留比例:</Typography.Text>
+            <Typography.Text>keep Ratio (0.01 ~ 1.0): </Typography.Text>
             <InputNumber
               min={0.01}
               max={1}
@@ -94,16 +94,31 @@ const DownSampling: React.FC = () => {
           </Flex>
 
           <Button size="small" type="primary" icon={<DownloadOutlined />} onClick={onDownsample} loading={loading} disabled={!file}>
-            开始降采样并下载
+            Start Down-Sampling and Download
           </Button>
         </Flex>
         {file && (
           <div style={{ marginTop: 8, color: '#888', fontSize: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div>文件：{file.name}</div>
-            <div>大小：{(file.size / (1024 * 1024)).toFixed(2)} MB</div>
-            <div>保留比例：{keepRatio}</div>
+            <div>Filename：{file.name}</div>
+            <div>Size：{(file.size / (1024 * 1024)).toFixed(2)} MB</div>
+            <div>Keep Ratio：{keepRatio}</div>
           </div>
         )}
+      </Card>
+      <Card size="small" bodyStyle={{ padding: 12 }}>
+        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Note for large point cloud
+        </Typography.Text>
+        <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
+          • For large point cloud (&gt; 400M points): upload and processing may take a long time
+          (≈15 mins for ply file with 3.7B points). Please be patient.
+        </Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
+          • The lower the down-sampling ratio, the faster the processing speed.
+        </Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 0, fontSize: 13, color: '#666' }}>
+          • Recommended to use 10% retention ratio when processing very large files.
+        </Typography.Paragraph>
       </Card>
     </Space>
   )

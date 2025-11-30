@@ -62,7 +62,7 @@ const Home: React.FC = () => {
 
   return (
     <Space direction="vertical" size="small" style={{ width: '100%' }}>
-      <Card size="small" bodyStyle={{ padding: 12 }} title={<Typography.Text strong>点云上传与渲染</Typography.Text>}>
+      <Card size="small" bodyStyle={{ padding: 12 }} title={<Typography.Text strong>Point Cloud Upload and Visualization</Typography.Text>}>
         <Flex gap={8} align="center" wrap>
           {/*
             使用 Upload 的受控模式：
@@ -80,20 +80,20 @@ const Home: React.FC = () => {
             }}
             showUploadList={{ showRemoveIcon: true }}
           >
-            <Button size="small" icon={<CloudUploadOutlined />}>选择 .ply 文件 (≤400MB)</Button>
+            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤400MB)</Button>
           </Upload>
           <Button size="small" type="primary" onClick={onUpload} loading={uploading} disabled={!selectedFile}>
-            上传
+            Upload
           </Button>
           <Button size="small" icon={<PlayCircleOutlined />} onClick={onRender} loading={rendering} disabled={!canRender}>
-            开始渲染
+            Start Visualizing
           </Button>
         </Flex>
         {uploaded && (
           <div style={{ marginTop: 8, color: '#888', fontSize: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div>文件：{uploaded.filename}</div>
-            <div>点数：{uploaded.total_points}</div>
-            <div>包含颜色：{uploaded.has_colors ? '是' : '否'}</div>
+            <div>Filename：{uploaded.filename}</div>
+            <div>Total Points：{uploaded.total_points}</div>
+            <div>Contains Colors：{uploaded.has_colors ? 'Yes' : 'No'}</div>
           </div>
         )}
       </Card>
@@ -119,12 +119,12 @@ const Home: React.FC = () => {
             }}
           >
             <Flex vertical align="center" justify="center">
-              <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateUp()}>上</Button>
+              <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateUp()}>Up</Button>
               <Space style={{ marginTop: 8, marginBottom: 8 }}>
-                <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateLeft()}>左</Button>
-                <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateRight()}>右</Button>
+                <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateLeft()}>Left</Button>
+                <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateRight()}>Right</Button>
               </Space>
-              <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateDown()}>下</Button>
+              <Button shape="default" size="large" type="primary" ghost onClick={() => viewerRef.current?.rotateDown()}>Down</Button>
             </Flex>
           </div>
         </div>
