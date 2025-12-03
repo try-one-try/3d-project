@@ -24,6 +24,7 @@ export interface PointCloudData {
 // 组件入参：仅传入数据
 interface Props {
   data?: PointCloudData
+  style?: React.CSSProperties
 }
 
 // 暴露给父组件调用的控制句柄类型
@@ -38,7 +39,7 @@ export interface PointCloudViewerHandle {
   rotateDown: (stepRad?: number) => void
 }
 
-const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, ref) => {
+const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, style }, ref) => {
   const mountRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<any>(null)
   const sceneRef = useRef<any>(null)
@@ -252,7 +253,18 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data }, re
   }), [])
 
   // 渲染容器：仅负责承载 WebGL 画布
-  return <div ref={mountRef} style={{ width: '100%', height: '70vh', border: '1px solid #333', borderRadius: 8 }} />
+  return (
+    <div
+      ref={mountRef}
+      style={{
+        width: '100%',
+        height: '70vh',
+        border: '1px solid #333',
+        borderRadius: 8,
+        ...style
+      }}
+    />
+  )
 })
 
 export default PointCloudViewer

@@ -98,10 +98,30 @@ const Home: React.FC = () => {
         )}
       </Card>
 
+      <Card size="small" bodyStyle={{ padding: 12 }}>
+        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Note for large point cloud
+        </Typography.Text>
+        <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
+          • <strong>Compatible format:</strong> Only PLY file format is supported
+        </Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
+          • <strong>Size limitation:</strong> The point number cannot exceed 400M
+          points, otherwise the server will crash
+        </Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 0, fontSize: 13, color: '#666' }}>
+          • <strong>Large files:</strong> For large point clouds, please use the down.
+          sampling tool first
+        </Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 0, fontSize: 13, color: '#666' }}>
+          • <strong>Processing time:</strong> Large point cloud may take longer to upload and process
+        </Typography.Paragraph>
+      </Card>
+
       {viewerData && (
         <div style={{ position: 'relative' }}>
           {/* 渲染区域 */}
-          <PointCloudViewer ref={viewerRef} data={viewerData} />
+          <PointCloudViewer ref={viewerRef} data={viewerData} style={{ height: '80vh' }} />
 
           {/* 方向控制按钮：上/下/左/右 旋转（覆盖在画布上方，始终可见） */}
           <div
