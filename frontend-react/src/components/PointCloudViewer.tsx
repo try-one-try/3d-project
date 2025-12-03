@@ -60,13 +60,18 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, styl
 
     // 创建基础三要素：场景、相机、渲染器
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x0a0a0a)
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 10000)
-    camera.position.set(0, 0, 2)
+    scene.background = new THREE.Color(0x111111) // 与 Vue 保持一致
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000) // 与 Vue 保持一致 (FOV 75)
+    camera.position.set(0, 0, 5) // 初始位置与 Vue 保持一致
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // 移除 Math.min 限制，直接使用 devicePixelRatio，与 Vue 保持一致
+    renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(width, height)
+    // 由于 Vue使用的是较旧的 Three.js (v0.137)，它默认使用 Linear 颜色空间。
+    // 而 React 使用的是最新版 (v0.180+)，默认使用 SRGB 颜色空间，这会导致颜色看起来“泛白”或“过亮”。
+    // 为了保持视觉效果一致，我们将输出空间设置为 LinearSRGBColorSpace。
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace
     // In React StrictMode (dev), effects may run twice; ensure container is clean
     // StrictMode 下 effect 可能执行两遍，先清容器
     if (mountRef.current.firstChild) {
@@ -77,10 +82,14 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, styl
     // 使用 OrbitControls 替代手写交互：支持旋转/缩放/平移，带阻尼更自然
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
-    controls.dampingFactor = 0.08
+    controls.dampingFactor = 0.25 // 与 Vue 保持一致
     controls.target.set(0, 0, 0)
     controls.update()
     controlsRef.current = controls
+
+    // 添加坐标轴辅助 (与 Vue 保持一致)
+    const axesHelper = new THREE.AxesHelper(5)
+    scene.add(axesHelper)
 
     // resize：容器大小变化时，更新渲染尺寸与相机纵横比
     const ro = new ResizeObserver(() => {
@@ -147,22 +156,19 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, styl
       pointsRef.current = null
     }
 
-    // 将原始点云数据归一化至 [-0.5, 0.5] 立方体，保证不同尺度的数据都能居中展示
-    // 步骤概览：
-    // 将不同尺寸/位置的点云“标准化”到一个统一盒子里，便于稳定查看：
-    // 1) 统计点云包围盒(最小/最大 x,y,z)
-    // 2) 计算点云中心(cx, cy, cz) 与每个方向长度(sx, sy, sz)
-    // 3) 选择最长边，计算统一缩放系数 scale = 1 / max(sx, sy, sz)
-    // 4) 每个点先“平移到以中心为原点”，再按 scale “等比缩放”，
-    //    使整体落入单位立方体[-0.5, 0.5]^3（居中展示，大小适中）。
+
     const numPoints = data.points.length
-    // 使用 TypedArray 存三维坐标：每个点占 3 个连续浮点（x,y,z）
+    // 初始化 TypedArray 存储顶点数据
+    // Three.js 的 BufferGeometry 需要扁平化的数组 (x,y,z, x,y,z, ...) 而非嵌套数组
     const positions = new Float32Array(numPoints * 3)
-    // 若颜色数组长度与点数一致，则为每个点准备 RGB（范围将转为 [0,1]）
+
+    // 初始化颜色数组
+    // 检查是否提供了颜色数据且长度与点数匹配
     const hasColors = Array.isArray(data.colors) && data.colors.length === numPoints
     const colors = hasColors ? new Float32Array(numPoints * 3) : undefined
 
-    // 1) 统计包围盒：依次更新最小值与最大值
+    // 步骤 1 计算包围盒 (Bounding Box)：遍历所有点，找到 x, y, z 的最大最小值。
+    // 这一步是为了找到点云在空间中的几何中心，用于后续的居中校正
     let minX = Infinity, minY = Infinity, minZ = Infinity
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (let i = 0; i < numPoints; i++) {
@@ -175,27 +181,30 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, styl
       if (z > maxZ) maxZ = z
     }
 
-    // 2) 计算每个方向的跨度；为防止除以 0，最小用 1 兜底
+    // 步骤 2 计算尺寸和中心点：确定点云的几何中心（用于居中）和最大尺寸（用于设置相机距离）。
+    // sx, sy, sz: 点云在三个轴向上的总跨度
     const sx = maxX - minX || 1
     const sy = maxY - minY || 1
     const sz = maxZ - minZ || 1
-    // 3) 取最长边来决定统一缩放比例，使最长边缩放到 1（其他边 < 1）
-    const scale = 1 / Math.max(sx, sy, sz)
-    // 计算几何中心点，用于平移到原点
+    // maxDim: 最长边的长度，用于后续设置合适的相机距离
+    const maxDim = Math.max(sx, sy, sz)
+    // cx, cy, cz: 点云的几何中心坐标
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
     const cz = (minZ + maxZ) / 2
 
-    // 4) 对所有点执行：先减中心(平移)，再乘 scale(缩放)
-    //    这样点云被标准化到以(0,0,0)为中心、最长边为 1 的单位立方体
-    //    举例：若原始坐标范围是 x∈[0,200]，则中心 cx≈100，缩放后最长边≈1，
-    //          点 (150, y, z) 会先变成 (50, y-cy, z-cz)，再乘以 scale≈1/200。
+    // 步骤 3: 执行数据处理
+    // 遍历所有点，执行两个关键操作：
+    // 1. 居中校正：将点平移到世界坐标原点 (0,0,0)，便于 OrbitControls 旋转查看
+    // 2. 颜色转换：将 RGB [0-255] 转换为 [0.0-1.0] 因为Three.js使用的是线性颜色空间
     for (let i = 0; i < numPoints; i++) {
       const [x, y, z] = data.points[i]
-      positions[i * 3] = (x - cx) * scale
-      positions[i * 3 + 1] = (y - cy) * scale
-      positions[i * 3 + 2] = (z - cz) * scale
-      // 若包含颜色：将 0~255 的 RGB 转为 three.js 常用的 0~1 浮点
+      // 顶点坐标平移 (执行平移)
+      positions[i * 3] = x - cx
+      positions[i * 3 + 1] = y - cy
+      positions[i * 3 + 2] = z - cz
+
+      // 转换颜色数据 (如果存在)
       if (colors && data.colors) {
         const [r, g, b] = data.colors[i]
         colors[i * 3] = (r ?? 255) / 255
@@ -209,10 +218,24 @@ const PointCloudViewer = forwardRef<PointCloudViewerHandle, Props>(({ data, styl
     if (colors) geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
     // 点材质：默认白色；若存在颜色属性则使用顶点颜色（每个点都可以有不同颜色）
+    // 与 Vue 保持一致的 size: 0.01
     const material = new THREE.PointsMaterial({ size: 0.01, vertexColors: !!colors, color: 0xffffff })
     const cloud = new THREE.Points(geometry, material)
     pointsRef.current = cloud
     scene.add(cloud)
+
+    // 根据物体尺寸更新相机位置和裁剪面（参考 Vue 实现）
+    if (cameraRef.current) {
+      const cam = cameraRef.current
+      cam.position.set(0, 0, maxDim * 1.5)
+      cam.near = maxDim / 100
+      cam.far = maxDim * 100
+      cam.updateProjectionMatrix()
+    }
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0)
+      controlsRef.current.update()
+    }
   }, [data])
 
   // 程序化旋转（当 OrbitControls 类型不暴露 rotateLeft/rotateUp 时的兜底实现）
