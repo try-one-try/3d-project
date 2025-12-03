@@ -10,14 +10,14 @@ import { downsamplePointCloud } from '@/apis/pointCloud'
 // 2) 输入自定义保留比例 keepRatio（0.01 ~ 1.0）
 // 3) 调用后端 /api/downsample，返回二进制并触发浏览器下载
 
-const MAX_SIZE_BYTES = 400 * 1024 * 1024 // 与上传一致的体积约束，避免超大文件
+const MAX_SIZE_BYTES = 1024 * 1024 * 1024 // 1GB
 
 const DownSampling: React.FC = () => {
   const [file, setFile] = useState<File | null>(null)
   const [keepRatio, setKeepRatio] = useState<number>(0.5)
   const [loading, setLoading] = useState(false)
 
-  // 选择文件前的校验：仅 .ply 且体积不超过 400MB
+  // 选择文件前的校验：仅 .ply 且体积不超过 1GB
   const beforeUpload: UploadProps['beforeUpload'] = useCallback((f: File) => {
     const isPly = f.name.toLowerCase().endsWith('.ply')
     if (!isPly) {
@@ -77,7 +77,7 @@ const DownSampling: React.FC = () => {
             }}
             showUploadList={{ showRemoveIcon: true }}
           >
-            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤400MB)</Button>
+            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤1GB)</Button>
           </Upload>
           {/* antd的Flex组件等价于一个带 display:flex 的 div*/}
           <Flex align="center" gap={6}>
