@@ -19,7 +19,7 @@ CORS(app)  # 启用CORS以允许前端访问
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'ply'}
-MAX_POINTS = 4000000  # 最大点数限制为400万
+MAX_POINTS = 5000000  # 最大点数限制为500万
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)

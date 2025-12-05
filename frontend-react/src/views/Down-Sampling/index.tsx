@@ -25,7 +25,7 @@ const DownSampling: React.FC = () => {
       return Upload.LIST_IGNORE
     }
     if (f.size > MAX_SIZE_BYTES) {
-      message.error('文件不能超过 400MB')
+      message.error('文件不能超过 1GB')
       return Upload.LIST_IGNORE
     }
     setFile(f)
@@ -110,7 +110,7 @@ const DownSampling: React.FC = () => {
           Note for large point cloud
         </Typography.Text>
         <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
-          • For large point cloud (&gt; 400M points): upload and processing may take a long time
+          • For large point cloud (&gt; 500M points): upload and processing may take a long time
           (≈15 mins for ply file with 3.7B points). Please be patient.
         </Typography.Paragraph>
         <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>

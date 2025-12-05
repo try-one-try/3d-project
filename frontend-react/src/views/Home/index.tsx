@@ -7,7 +7,7 @@ import PointCloudViewer, { type PointCloudViewerHandle } from '@/components/Poin
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { setSelectedFile, uploadPointCloudThunk, fetchPointCloudThunk } from '@/store/pointCloudSlice'
 
-const MAX_SIZE_BYTES = 400 * 1024 * 1024 // 400MB
+const MAX_SIZE_BYTES = 1024 * 1024 * 1024 // 1GB
 
 const Home: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -23,7 +23,7 @@ const Home: React.FC = () => {
       return Upload.LIST_IGNORE
     }
     if (f.size > MAX_SIZE_BYTES) {
-      message.error('文件不能超过 400MB')
+      message.error('文件不能超过 1GB')
       return Upload.LIST_IGNORE
     }
     // 使用 Redux 存储当前选择的文件，并清空之前的上传/渲染结果
@@ -80,7 +80,7 @@ const Home: React.FC = () => {
             }}
             showUploadList={{ showRemoveIcon: true }}
           >
-            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤400MB)</Button>
+            <Button size="small" icon={<CloudUploadOutlined />}>Select .ply File (≤1GB)</Button>
           </Upload>
           <Button size="small" type="primary" onClick={onUpload} loading={uploading} disabled={!selectedFile}>
             Upload
@@ -106,8 +106,8 @@ const Home: React.FC = () => {
           • <strong>Compatible format:</strong> Only PLY file format is supported
         </Typography.Paragraph>
         <Typography.Paragraph style={{ marginBottom: 4, fontSize: 13, color: '#666' }}>
-          • <strong>Size limitation:</strong> The point number cannot exceed 400M
-          points, otherwise the server will crash
+          • <strong>Size limitation:</strong> The point number cannot exceed 500M
+          points, otherwise may take a very long time to visualize
         </Typography.Paragraph>
         <Typography.Paragraph style={{ marginBottom: 0, fontSize: 13, color: '#666' }}>
           • <strong>Large files:</strong> For large point clouds, please use the down.

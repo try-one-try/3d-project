@@ -25,7 +25,7 @@ const { Title, Text } = Typography
 
 type Lang = 'zh' | 'en' // 定义语言类型：中文或英文
 
-const MAX_SIZE_BYTES = 400 * 1024 * 1024 // 400MB
+const MAX_SIZE_BYTES = 1024 * 1024 * 1024 // 1GB
 
 // 获取后端 API 地址，优先使用环境变量，否则默认为 localhost:8085
 const baseURL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8085'
@@ -302,7 +302,7 @@ const FileAnalyzing: React.FC = () => {
 
       <Card>
         <Space direction='vertical' size='middle' style={{ display: 'flex' }}>
-          <Text>1. Select .ply File (≤ 400MB)</Text>
+          <Text>1. Select .ply File (≤ 1GB, Max 500M points)</Text>
           <Upload
             beforeUpload={beforeUpload}
             maxCount={1}
@@ -313,7 +313,7 @@ const FileAnalyzing: React.FC = () => {
             }}
             showUploadList={{ showRemoveIcon: true }}
           >
-            <Button icon={<InboxOutlined />}>Select .ply File (≤ 400MB)</Button>
+            <Button icon={<InboxOutlined />}>Select .ply File (≤ 1GB)</Button>
           </Upload>
           <Button type='primary' onClick={onUpload} loading={uploading} disabled={!selectedFile}>
             Upload
