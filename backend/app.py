@@ -521,26 +521,25 @@ def stream_file_analysis():
         system_prompt = (
             "你是三维点云分析专家。请以通俗中文给出结构化分析，先结论后细节，"
             "包括但不限于：整体概述、几何范围与分布、颜色特征（如有）、"
-            "数据质量（噪声/离群点/密度不均）、可视化与下游处理建议。"
+            "数据质量（噪声/离群点/密度不均）"
         )
         user_prompt = (
             f"点云文件：{filename}\n"
             f"统计摘要 JSON：\n{stats_text}\n"
             "请严格根据上述量化信息，给出结构化中文分析（结论、几何范围、颜色特征、"
-            "数据质量、下游处理建议等），若信息不足可提示不确定性。"
+            "数据质量），若信息不足可提示不确定性。"
         )
     else:
         system_prompt = (
             "You are an expert in 3D point cloud analysis. Provide a structured analysis in clear English, "
             "starting with key conclusions followed by details: overall description, geometric ranges and distribution, "
-            "color characteristics (if any), data quality (noise/outliers/density), "
-            "and suggestions for visualization and downstream processing."
+            "color characteristics (if any), data quality (noise/outliers/density)."
         )
         user_prompt = (
             f"Point cloud file: {filename}\n"
             f"Statistics JSON:\n{stats_text}\n"
             "Please generate a structured English analysis strictly based on the provided data "
-            "(summary, geometry, colors, quality, downstream suggestions). "
+            "(summary, geometry, colors, data quality). "
             "Call out any uncertainty if the stats do not contain enough evidence."
         )
 
